@@ -1,0 +1,134 @@
+[
+  {
+    "id": "seed-squat-depth-01",
+    "title": "Squat depth and knee flexion",
+    "section": "squat technique",
+    "text": "During a rehabilitation squat, knee flexion is typically progressed within a pain-free range. A commonly cited target for functional strength is a knee angle of about 90 degrees (parallel thigh), but earlier rehabilitation phases often stay closer to 100 to 120 degrees of knee flexion until the joint tolerates a deeper range. Depth should be individualised to the patient's range of motion and the surgical or injury protocol.",
+    "source_url": "https://www.apta.org/",
+    "license": "Reference only - see APTA general guidance",
+    "evidence_level": "guideline",
+    "tags": ["squat", "knee", "ROM", "rehabilitation"],
+    "body_part": "knee"
+  },
+  {
+    "id": "seed-squat-kot-01",
+    "title": "Knee alignment over the ankle",
+    "section": "squat technique",
+    "text": "Excessive forward translation of the knee past the toe during a squat increases patellofemoral joint compressive force. Keeping the shin roughly vertical and driving the hips backward reduces anterior knee stress. For patellofemoral pain rehabilitation, coaches often cue the patient to sit back and keep the knee stacked over the ankle.",
+    "source_url": "https://www.jospt.org/",
+    "license": "Reference only - see JOSPT open articles",
+    "evidence_level": "review",
+    "tags": ["squat", "knee", "patellofemoral", "form"],
+    "body_part": "knee"
+  },
+  {
+    "id": "seed-squat-torso-01",
+    "title": "Torso lean during a bodyweight squat",
+    "section": "squat technique",
+    "text": "A moderate forward torso lean is normal during a squat, but excessive forward flexion (typically more than about 45 degrees from vertical) increases lumbar spine load and shifts effort away from the quadriceps. Cueing the patient to engage the core, keep the chest up, and hinge at the hips helps maintain a neutral spine.",
+    "source_url": "https://www.ncbi.nlm.nih.gov/pmc/",
+    "license": "Public domain - NIH / PMC",
+    "evidence_level": "review",
+    "tags": ["squat", "back", "core", "form"],
+    "body_part": "back"
+  },
+  {
+    "id": "seed-knee-valgus-01",
+    "title": "Dynamic knee valgus",
+    "section": "form correction",
+    "text": "Dynamic knee valgus - the knee tracking medially during a squat, lunge, or landing - is a risk factor for anterior cruciate ligament injury and patellofemoral pain. Cueing 'knees out over the second toe' and strengthening the gluteus medius reduces valgus collapse. Rehabilitation programmes often include monster walks, clamshells, and single-leg squats to progress control.",
+    "source_url": "https://www.ncbi.nlm.nih.gov/pmc/",
+    "license": "Public domain - NIH / PMC",
+    "evidence_level": "review",
+    "tags": ["knee", "valgus", "injury-prevention"],
+    "body_part": "knee"
+  },
+  {
+    "id": "seed-rom-utilisation-01",
+    "title": "Range of motion utilisation",
+    "section": "concepts",
+    "text": "Range of motion utilisation is the ratio between the range a patient reached during a rep and their available range of motion. Consistent under-utilisation (for example only using 60 percent of the available range) can slow strength adaptation. Progression targets are individualised to the patient's tolerance and stage of rehabilitation.",
+    "source_url": "https://www.pedro.org.au/",
+    "license": "Metadata only - PEDro",
+    "evidence_level": "definition",
+    "tags": ["ROM", "concepts"],
+    "body_part": "knee"
+  },
+  {
+    "id": "seed-tempo-01",
+    "title": "Eccentric and concentric tempo",
+    "section": "concepts",
+    "text": "Slowing down the eccentric (lowering) phase of a squat to about 3 seconds while keeping the concentric (rising) phase at 1 to 2 seconds increases time under tension and can support tendon rehabilitation. Very fast reps limit the ability to control form and are usually reserved for late-stage return-to-sport protocols.",
+    "source_url": "https://www.jospt.org/",
+    "license": "Reference only - see JOSPT",
+    "evidence_level": "review",
+    "tags": ["tempo", "squat", "tendon"],
+    "body_part": "knee"
+  },
+  {
+    "id": "seed-two-tick-01",
+    "title": "Why rep counting requires confirmation",
+    "section": "measurement",
+    "text": "Instantaneous single-frame joint angles are noisy, so a rep counter should require the target angle to be held for at least two consecutive frames before switching state. This two-tick confirmation prevents a flicker between standing and bottom positions from producing a phantom rep, especially when the pose estimator briefly loses a joint.",
+    "source_url": "internal",
+    "license": "Notes",
+    "evidence_level": "design-note",
+    "tags": ["measurement", "rep-counter"],
+    "body_part": "any"
+  },
+  {
+    "id": "seed-camera-view-01",
+    "title": "Camera view for squat analysis",
+    "section": "setup",
+    "text": "A front-view camera is well suited for detecting dynamic knee valgus and hip drop during a squat, while a side-view camera is required to measure knee-over-toe translation and torso lean. If only one camera is available, a 45-degree oblique view compromises between the two.",
+    "source_url": "internal",
+    "license": "Notes",
+    "evidence_level": "setup-note",
+    "tags": ["camera", "setup"],
+    "body_part": "any"
+  },
+  {
+    "id": "seed-warmup-01",
+    "title": "Warm-up before rehabilitation exercise",
+    "section": "protocol",
+    "text": "A five-minute low-intensity warm-up (marching in place, gentle cycling, or air squats to a comfortable depth) raises tissue temperature and improves range of motion before loaded rehabilitation work. Static stretching before strength training is generally avoided because it briefly reduces force production.",
+    "source_url": "https://www.who.int/",
+    "license": "Public - WHO physical activity guidance",
+    "evidence_level": "guideline",
+    "tags": ["warmup", "protocol"],
+    "body_part": "any"
+  },
+  {
+    "id": "seed-pain-01",
+    "title": "Pain during exercise",
+    "section": "safety",
+    "text": "Mild discomfort during rehabilitation exercise is usually acceptable, but sharp pain, giving-way, or swelling that persists more than two hours after a session are signs the load or range should be reduced. The patient should be advised to contact their physiotherapist rather than push through pain.",
+    "source_url": "https://www.who.int/",
+    "license": "Public - WHO guidance",
+    "evidence_level": "guideline",
+    "tags": ["safety", "pain"],
+    "body_part": "any"
+  },
+  {
+    "id": "seed-glute-medius-01",
+    "title": "Gluteus medius and knee tracking",
+    "section": "anatomy",
+    "text": "The gluteus medius is a hip abductor and external rotator. Weakness in this muscle is associated with dynamic knee valgus and iliotibial band syndrome. Exercises such as side-lying leg raises, clamshells, and single-leg squats are commonly used to strengthen it during lower-limb rehabilitation.",
+    "source_url": "https://www.ncbi.nlm.nih.gov/pmc/",
+    "license": "Public - NIH / PMC",
+    "evidence_level": "review",
+    "tags": ["anatomy", "hip", "knee"],
+    "body_part": "knee"
+  },
+  {
+    "id": "seed-symmetry-01",
+    "title": "Symmetry index between limbs",
+    "section": "concepts",
+    "text": "The symmetry index compares the same variable (for example knee flexion range or eccentric time) between the two limbs. In late-stage rehabilitation a symmetry index within about 10 percent is often used as a return-to-activity criterion, though the exact threshold depends on the surgical procedure and the sport.",
+    "source_url": "https://www.jospt.org/",
+    "license": "Reference only - see JOSPT",
+    "evidence_level": "review",
+    "tags": ["symmetry", "return-to-play"],
+    "body_part": "knee"
+  }
+]
