@@ -37,6 +37,7 @@ class _State:
         self._frame_jpeg: Optional[bytes] = None
         self._frame_seq: int = 0
         self._state: dict = {}
+        self._session_log = None
         self._frame_event = threading.Condition(self._lock)
 
     def push_frame(self, jpeg_bytes: bytes) -> None:
@@ -58,6 +59,14 @@ class _State:
     def get_state(self) -> dict:
         with self._lock:
             return dict(self._state)
+
+    def bind_session_log(self, log) -> None:
+        with self._lock:
+            self._session_log = log
+
+    def session_log(self):
+        with self._lock:
+            return self._session_log
 
 
 STATE = _State()
@@ -81,10 +90,35 @@ class _Handler(http.server.SimpleHTTPRequestHandler):
         if path == "/api/state":
             self._send_json(200, STATE.get_state())
             return
+        if path == "/api/session":
+            self._send_json(200, self._session_payload())
+            return
+        if path == "/api/progress":
+            self._send_json(200, self._progress_payload())
+            return
         if path == "/api/ping":
             self._send_json(200, {"ok": True})
             return
         super().do_GET()
+
+    def _session_payload(self) -> dict:
+        log = STATE.session_log()
+        if log is None:
+            return {"reps": []}
+        try:
+            data = log.current_session_summary()
+        except Exception as e:
+            return {"reps": [], "error": f"{type(e).__name__}: {e}"}
+        return data or {"reps": []}
+
+    def _progress_payload(self) -> dict:
+        log = STATE.session_log()
+        if log is None:
+            return {"sessions": []}
+        try:
+            return log.past_sessions()
+        except Exception as e:
+            return {"sessions": [], "error": f"{type(e).__name__}: {e}"}
 
     def _mjpeg_stream(self) -> None:
         self.send_response(200)
