@@ -3,70 +3,327 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0e1116">
-  <title>PhysioLive</title>
+  <meta name="theme-color" content="#0a0d14">
+  <meta name="description" content="Real-time physiotherapy coach that runs in your browser. Camera and pose stay on your device.">
+  <title>PhysioLive - AI physiotherapy coach</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
 </head>
-<body>
-  <header class="topbar">
-    <div class="brand">PhysioLive</div>
-    <div class="header-actions">
-      <select id="exercise-select" class="exercise-select">
-        <option value="squat">Squat</option>
-        <option value="lunge">Forward Lunge</option>
-        <option value="glute_bridge">Glute Bridge</option>
-        <option value="leg_raise">Straight Leg Raise</option>
-        <option value="shoulder_abduction">Shoulder Abduction</option>
-      </select>
-      <button id="camera-btn" class="btn">Camera</button>
-      <button id="signin-btn" class="btn ghost">Sign in</button>
+<body data-view="landing">
+
+  <!-- ========================= NAV ========================= -->
+  <header class="nav">
+    <div class="nav-brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="18" stroke="url(#brandStroke)" stroke-width="2"/>
+        <path d="M13 22 L18 27 L28 15" stroke="url(#brandStroke)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs>
+          <linearGradient id="brandStroke" x1="0" y1="0" x2="40" y2="40">
+            <stop offset="0" stop-color="#7dd3fc"/>
+            <stop offset="0.5" stop-color="#a78bfa"/>
+            <stop offset="1" stop-color="#34d399"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <span class="brand-text">PhysioLive</span>
+      <span class="brand-tag">beta</span>
     </div>
+    <nav class="nav-actions">
+      <button class="nav-btn nav-btn--ghost" id="nav-history" title="Session history">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+        <span>History</span>
+      </button>
+      <button class="nav-btn nav-btn--ghost" id="nav-signin" title="Sign in with Google">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span id="signin-label">Sign in</span>
+      </button>
+    </nav>
   </header>
 
-  <main>
-    <section class="stage" id="stage">
-      <video id="cam" playsinline autoplay muted></video>
-      <canvas id="overlay"></canvas>
-      <div class="hud">
-        <div class="hud-line"><span class="hud-key">Exercise</span>
-          <span id="exercise-name">Squat</span></div>
-        <div class="hud-line"><span class="hud-key">Reps</span>
-          <span id="rep-count">0</span> /
-          <span id="rep-goal">-</span></div>
-        <div class="hud-line"><span class="hud-key">Phase</span>
-          <span id="rep-state">Idle</span></div>
-        <div class="hud-line"><span class="hud-key">Primary angle</span>
-          <span id="primary-angle">-</span></div>
-        <div class="verdict" id="verdict"></div>
+  <!-- ========================= LANDING ========================= -->
+  <main class="landing" id="view-landing">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="hero-badge">
+          <span class="hero-dot"></span>
+          Runs entirely in your browser
+        </div>
+        <h1 class="hero-title">
+          Your <span class="hero-grad">physiotherapy coach</span>,
+          right in the camera.
+        </h1>
+        <p class="hero-sub">
+          PhysioLive tracks your body in real time, counts every rep, checks
+          your form against the physiotherapy literature, and speaks
+          personalised feedback out loud. No install, no upload, no video
+          leaves your device.
+        </p>
+        <div class="hero-cta">
+          <button class="btn btn--primary btn--lg" id="start-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            Start with camera
+          </button>
+          <a class="btn btn--ghost btn--lg" href="#exercises">
+            Choose an exercise
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </a>
+        </div>
+        <div class="hero-trust">
+          <div class="trust-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Video never leaves your device</span>
+          </div>
+          <div class="trust-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <span>Live, on-device pose</span>
+          </div>
+          <div class="trust-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            <span>Feedback grounded in real sources</span>
+          </div>
+        </div>
       </div>
-      <div class="placeholder" id="placeholder">
-        <p>Tap <b>Camera</b> to start. You will be asked to allow camera
-          access. The video never leaves your device.</p>
+      <div class="hero-visual">
+        <div class="hero-frame">
+          <div class="hero-frame-inner">
+            <div class="hero-skeleton" aria-hidden="true">
+              <svg viewBox="0 0 240 320" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <g class="skeleton-body" stroke="url(#skStroke)" stroke-width="3.5">
+                  <circle cx="120" cy="60" r="18" />
+                  <line x1="120" y1="78" x2="120" y2="160" />
+                  <line x1="120" y1="105" x2="70" y2="150" />
+                  <line x1="70" y1="150" x2="60" y2="200" />
+                  <line x1="120" y1="105" x2="170" y2="150" />
+                  <line x1="170" y1="150" x2="180" y2="200" />
+                  <line x1="120" y1="160" x2="90" y2="230" />
+                  <line x1="90" y1="230" x2="80" y2="300" />
+                  <line x1="120" y1="160" x2="150" y2="230" />
+                  <line x1="150" y1="230" x2="160" y2="300" />
+                </g>
+                <g class="skeleton-joints" fill="#f5f7fa">
+                  <circle cx="120" cy="105" r="4"/>
+                  <circle cx="70" cy="150" r="4"/>
+                  <circle cx="170" cy="150" r="4"/>
+                  <circle cx="60" cy="200" r="4"/>
+                  <circle cx="180" cy="200" r="4"/>
+                  <circle cx="120" cy="160" r="4"/>
+                  <circle cx="90" cy="230" r="4"/>
+                  <circle cx="150" cy="230" r="4"/>
+                  <circle cx="80" cy="300" r="4"/>
+                  <circle cx="160" cy="300" r="4"/>
+                </g>
+                <defs>
+                  <linearGradient id="skStroke" x1="0" y1="0" x2="240" y2="320">
+                    <stop offset="0" stop-color="#7dd3fc"/>
+                    <stop offset="0.5" stop-color="#a78bfa"/>
+                    <stop offset="1" stop-color="#34d399"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <div class="hero-hud">
+              <div class="hero-hud-row"><span>Squat</span><span class="hero-hud-val">7 / 12</span></div>
+              <div class="hero-hud-bar">
+                <div class="hero-hud-fill" style="width: 58%"></div>
+              </div>
+              <div class="hero-hud-pill hero-hud-pill--good">Good form</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="side-panel">
-      <div class="feedback-log" id="feedback-log"></div>
-      <div class="session-stats" id="session-stats">
-        <div class="stat"><span class="k">Session reps</span>
-          <span class="v" id="stat-reps">0</span></div>
-        <div class="stat"><span class="k">Good</span>
-          <span class="v" id="stat-good">0</span></div>
-        <div class="stat"><span class="k">Warnings</span>
-          <span class="v" id="stat-warn">0</span></div>
+    <section class="exercises" id="exercises">
+      <div class="section-head">
+        <h2>Choose an exercise</h2>
+        <p>Five rehabilitation exercises. Tap one to start.</p>
+      </div>
+      <div class="exercise-grid" id="exercise-grid">
+        <!-- populated by app.js -->
+      </div>
+    </section>
+
+    <section class="how">
+      <div class="section-head">
+        <h2>How it works</h2>
+        <p>Three moving parts, all working together in your browser.</p>
+      </div>
+      <div class="how-grid">
+        <div class="how-card">
+          <div class="how-num">01</div>
+          <h3>Camera + pose</h3>
+          <p>Your webcam feeds MediaPipe Pose in the browser. 33 body landmarks and 21 finger joints per hand, at ~15 fps on any modern phone.</p>
+        </div>
+        <div class="how-card">
+          <div class="how-num">02</div>
+          <h3>Rep counter + rules</h3>
+          <p>A direction-agnostic state machine counts every rep. Deterministic form rules score depth, alignment, and torso lean at rep-close.</p>
+        </div>
+        <div class="how-card">
+          <div class="how-num">03</div>
+          <h3>Coach feedback</h3>
+          <p>For each verdict, the app pulls the most relevant chunks from a physiotherapy knowledge base and asks a language model to compose a single, cited sentence.</p>
+        </div>
       </div>
     </section>
   </main>
 
-  <div id="signin-modal" class="modal hidden" aria-hidden="true">
+  <!-- ========================= LIVE ========================= -->
+  <main class="live" id="view-live" hidden>
+    <div class="live-stage">
+      <video id="cam" playsinline autoplay muted></video>
+      <canvas id="overlay"></canvas>
+
+      <!-- Top-left: exercise + stop -->
+      <div class="live-topbar">
+        <button class="live-back" id="stop-btn" title="End session">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          <span>End</span>
+        </button>
+        <div class="live-title">
+          <div class="live-title-name" id="live-exercise-name">Squat</div>
+          <div class="live-title-meta">
+            <span class="live-title-tag" id="live-provider">Live</span>
+            <span class="live-title-sep">•</span>
+            <span id="live-fps">~15 fps</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top-right: HUD -->
+      <div class="live-hud">
+        <div class="hud-metric">
+          <div class="hud-metric-label">Phase</div>
+          <div class="hud-metric-value" id="hud-phase">STANDING</div>
+        </div>
+        <div class="hud-metric">
+          <div class="hud-metric-label" id="hud-angle-label">Knee angle</div>
+          <div class="hud-metric-value" id="hud-angle">--</div>
+        </div>
+        <div class="hud-ring">
+          <svg viewBox="0 0 100 100" class="ring">
+            <circle cx="50" cy="50" r="42" class="ring-track"/>
+            <circle cx="50" cy="50" r="42" class="ring-fill" id="ring-fill"/>
+          </svg>
+          <div class="hud-ring-center">
+            <div class="hud-ring-count" id="hud-reps">0</div>
+            <div class="hud-ring-goal">of <span id="hud-goal">12</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom: coach message + tiny stats row -->
+      <div class="live-bottom">
+        <div class="coach-banner" id="coach-banner" data-level="idle">
+          <div class="coach-banner-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div class="coach-banner-body">
+            <div class="coach-banner-text" id="coach-text">Tap start on any exercise to begin. Your camera never leaves this device.</div>
+            <a class="coach-banner-source" id="coach-source" href="#" target="_blank" rel="noopener" hidden>view source</a>
+          </div>
+        </div>
+        <div class="live-mini">
+          <div class="mini-stat">
+            <div class="mini-stat-value" id="mini-good">0</div>
+            <div class="mini-stat-label">Good</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-value" id="mini-warn">0</div>
+            <div class="mini-stat-label">Cues</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-value" id="mini-elapsed">0:00</div>
+            <div class="mini-stat-label">Time</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="live-loading" id="live-loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Warming up the pose engine...</div>
+      </div>
+    </div>
+
+    <aside class="live-side">
+      <div class="side-head">
+        <h3>Feedback</h3>
+        <span class="side-head-tag" id="feedback-count">0</span>
+      </div>
+      <div class="feedback-log" id="feedback-log">
+        <div class="feedback-empty">
+          Coach messages will show up here.
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ========================= SUMMARY ========================= -->
+  <main class="summary" id="view-summary" hidden>
+    <section class="summary-hero">
+      <div class="summary-hero-copy">
+        <div class="summary-hero-tag">Session complete</div>
+        <h1 id="summary-title">Nice work.</h1>
+        <p id="summary-sub">Here is how the session went.</p>
+        <div class="summary-actions">
+          <button class="btn btn--primary" id="summary-again">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15A9 9 0 1 1 18.36 5.64L23 10"/></svg>
+            Do another
+          </button>
+          <button class="btn btn--ghost" id="summary-home">Back to menu</button>
+        </div>
+      </div>
+      <div class="summary-hero-chart" id="summary-chart-wrap">
+        <canvas id="summary-chart" width="480" height="200"></canvas>
+      </div>
+    </section>
+
+    <section class="summary-stats" id="summary-stats"></section>
+
+    <section class="summary-history">
+      <h2>Reps</h2>
+      <div class="rep-table-wrap">
+        <table class="rep-table" id="summary-rep-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Primary min</th>
+              <th>Verdict</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody id="summary-rep-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========================= HISTORY DRAWER ========================= -->
+  <aside class="drawer" id="history-drawer" hidden>
+    <div class="drawer-head">
+      <h2>Past sessions</h2>
+      <button class="drawer-close" id="history-close" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="drawer-body" id="history-list"></div>
+  </aside>
+
+  <!-- ========================= SIGN-IN MODAL ========================= -->
+  <div class="modal" id="signin-modal" hidden>
     <div class="modal-body">
       <h2>Sign in</h2>
-      <p>Sign in with Google to sync your session history across devices.
-        Skip to keep everything private on this device only.</p>
-      <div id="google-signin-button"></div>
-      <button id="signin-skip" class="btn ghost">Skip for now</button>
+      <p>Sign in with Google to sync sessions across devices. Skip to keep everything on this device only.</p>
+      <div id="google-signin-button" class="google-btn-holder"></div>
+      <button class="btn btn--ghost btn--sm" id="signin-skip">Continue as guest</button>
     </div>
+    <div class="modal-backdrop" id="signin-backdrop"></div>
   </div>
+
+  <!-- ========================= TOAST ========================= -->
+  <div class="toast" id="toast" hidden></div>
 
   <script type="module" src="assets/app.js"></script>
 </body>
