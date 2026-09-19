@@ -2,17 +2,20 @@
 
 Reads `COACH_PROVIDER` from the environment and dispatches:
 
-- `groq` (default): Llama 3.3 70B on the Groq platform. Calls the
-  OpenAI-compatible endpoint at
+- `groq` (default): calls the OpenAI-compatible chat endpoint at
   `https://api.groq.com/openai/v1/chat/completions` directly with
-  `httpx`, so we do not depend on the `openai` SDK's evolving API.
-  Requires `GROQ_API_KEY`.
+  `httpx`. Requires `GROQ_API_KEY`. Default model is
+  `openai/gpt-oss-20b`; upgrade to `openai/gpt-oss-120b` via the
+  `GROQ_MODEL` env var when instruction following matters more than
+  latency.
 - `anthropic`: Claude Haiku via the Anthropic Python SDK, requires
   `ANTHROPIC_API_KEY`.
 
-Both providers return a single-sentence coaching message. The system
-prompt forbids inventing citations - the model may only reference
-facts that appear in the evidence chunks passed to it.
+The system prompt is written to force the model to compose a NEW
+sentence rather than parrot the rule-based verdict text that appears
+in the user message. Smaller models (like gpt-oss-20b) can otherwise
+just echo the first "message"-like string they find; the explicit "do
+not repeat" instruction is what keeps them honest.
 """
 from __future__ import annotations
 
@@ -25,17 +28,26 @@ from app.rag.query import Chunk
 
 
 SYSTEM_PROMPT = (
-    "You are a virtual physiotherapy coach. The user just finished one "
-    "repetition of a rehabilitation exercise. You receive a rule-based "
-    "verdict and a short set of evidence chunks that the retrieval "
-    "layer picked for this event.\n\n"
-    "Reply with exactly ONE short sentence in English (max 22 words) "
-    "that either encourages the user or corrects the form issue. "
-    "If you cite a fact, cite ONLY facts that appear in the evidence "
-    "chunks below. Do NOT invent statistics or references. If none of "
-    "the chunks is relevant, give a plain motivational sentence without "
-    "citing anything. Lead with a positive note before a correction "
-    "when the verdict is not 'good'."
+    "You are a virtual physiotherapy coach. After each repetition you "
+    "receive:\n"
+    "  1. A rule-based verdict identifying the form issue.\n"
+    "  2. A small set of evidence chunks retrieved from the "
+    "     physiotherapy literature.\n\n"
+    "Your job is to COMPOSE A NEW SENTENCE (maximum 22 words) that "
+    "coaches the user. Requirements:\n"
+    "  - Do NOT copy or paraphrase the rule verdict verbatim. Restate "
+    "    it in your own words, with a specific correction cue.\n"
+    "  - When the verdict is not 'good', lead with a short "
+    "    encouragement clause before the correction.\n"
+    "  - You MAY cite ONE fact from the evidence chunks; when you do, "
+    "    make the citation part of the sentence naturally. Do NOT "
+    "    invent statistics, journal names or URLs that are not in the "
+    "    evidence.\n"
+    "  - Never emit multiple sentences. Never emit lists. Never quote "
+    "    the rule verdict word for word.\n"
+    "  - If none of the chunks is relevant, output a plain "
+    "    encouragement without any citation.\n\n"
+    "Output only the sentence. No preamble, no headings, no quotes."
 )
 
 
@@ -72,7 +84,7 @@ def _call_groq(user_prompt: str) -> str:
                 {"role": "user", "content": user_prompt},
             ],
             "max_tokens": 140,
-            "temperature": 0.4,
+            "temperature": 0.6,
         },
         timeout=10.0,
     )
@@ -103,13 +115,18 @@ def _build_user_prompt(exercise: str, verdict_level: str, verdict_text: str,
                        metrics: dict, chunks: Sequence[Chunk]) -> str:
     lines: List[str] = [
         f"Exercise: {exercise}",
-        f"Verdict: {verdict_level or 'unknown'}",
-        f"Rule message: {verdict_text or '(none)'}",
+        f"Detected form issue (severity {verdict_level or 'unknown'}): "
+        f"{verdict_text or '(none)'}",
     ]
     if metrics:
-        lines.append(f"Angles: {metrics}")
+        pretty = ", ".join(
+            f"{k}={_num_str(v)}" for k, v in metrics.items()
+            if v is not None
+        )
+        if pretty:
+            lines.append(f"Measured angles: {pretty}")
     lines.append("")
-    lines.append("Evidence chunks (cite only these):")
+    lines.append("Retrieved evidence (cite only from this list):")
     if chunks:
         for i, c in enumerate(chunks, 1):
             title = c.title or "untitled"
@@ -119,7 +136,16 @@ def _build_user_prompt(exercise: str, verdict_level: str, verdict_text: str,
                 snippet = snippet[:400] + "..."
             lines.append(f"[{i}] ({title}) {snippet}  <{src}>")
     else:
-        lines.append("(no evidence retrieved)")
+        lines.append("(no evidence retrieved - fall back to a plain "
+                     "encouragement)")
     lines.append("")
-    lines.append("Reply now with the single-sentence coaching message.")
+    lines.append("Compose your new one-sentence coaching message now. "
+                 "Do NOT repeat the detected-issue text verbatim.")
     return "\n".join(lines)
+
+
+def _num_str(v) -> str:
+    try:
+        return f"{float(v):.1f}"
+    except Exception:
+        return str(v)
