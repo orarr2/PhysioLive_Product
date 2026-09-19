@@ -4,10 +4,11 @@
  */
 
 export const CONFIG = {
-  // Origin of the PhysioLive coach + RAG service. Leave as null while
-  // the VM is offline; the web app falls back to rule-only feedback.
-  // Will be filled in with the Cloudflare Tunnel URL.
-  vmOrigin: null,
+  // Origin of the PhysioLive coach + RAG service.
+  // Currently a Cloudflare TryCloudflare URL - it will change every
+  // time the tunnel restarts. When the operator moves to a named
+  // tunnel with a stable hostname, replace this value.
+  vmOrigin: "https://butter-several-publisher-lance.trycloudflare.com",
 
   // Google Sign-In client id. Create one at
   // https://console.cloud.google.com/apis/credentials
@@ -15,6 +16,8 @@ export const CONFIG = {
   googleClientId: null,
 
   // Bearer token expected by the VM's /rag/query and /coach/feedback
-  // endpoints. Must match PHYSIOLIVE_API_TOKEN on the VM.
-  apiToken: null,
+  // endpoints. Must match PHYSIOLIVE_API_TOKEN on the VM. Not a
+  // user-specific secret - it is the shared gate that lets every
+  // browser client talk to the shared coach service.
+  apiToken: "-cXesXlAii8XMi75lgOjXx_sGdY1FpaMMIy3gzQiEII",
 };
