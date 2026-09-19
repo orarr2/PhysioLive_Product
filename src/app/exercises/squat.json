@@ -1,0 +1,50 @@
+{
+  "id": "squat",
+  "display_name_he": "סקוואט",
+  "display_name_en": "Squat",
+  "pose_backend": "yolo",
+  "camera_view": "front",
+  "rep_goal": 12,
+  "rep_definition": {
+    "primary_angle": "knee_left",
+    "secondary_angle": "knee_right",
+    "standing_deg": 170,
+    "bottom_deg": 100,
+    "hysteresis_deg": 8,
+    "confirm_frames": 2
+  },
+  "rules": [
+    {
+      "id": "shallow_depth",
+      "level": "warn",
+      "message_he": "עומק החזרה רדוד. נסה לרדת יותר בתוך הטווח שלך.",
+      "message_en": "Shallow rep. Try to go deeper within your range.",
+      "condition": {
+        "kind": "rom_below",
+        "metric": "knee_min_deg",
+        "target_max_deg": 115
+      }
+    },
+    {
+      "id": "knee_over_toe",
+      "level": "warn",
+      "message_he": "הברך מקדימה את האצבע. שמור על הברך מעל הקרסול.",
+      "message_en": "Knee is past the toe. Keep the knee over the ankle.",
+      "condition": {
+        "kind": "knee_over_toe_side",
+        "threshold_norm": 0.35
+      }
+    },
+    {
+      "id": "torso_lean",
+      "level": "warn",
+      "message_he": "הגב נוטה קדימה. חזק את הליבה ותשמור על גב זקוף יחסית.",
+      "message_en": "Torso leaning too far. Engage the core and stay upright.",
+      "condition": {
+        "kind": "torso_vertical_gt",
+        "threshold_deg": 45
+      }
+    }
+  ],
+  "reference_signature_ids": []
+}
