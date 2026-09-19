@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PhysioLive</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">PhysioLive</div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="live">Live</button>
+      <button class="tab" data-tab="session">Session</button>
+      <button class="tab" data-tab="progress">Progress</button>
+    </nav>
+    <div class="status" id="status">--</div>
+  </header>
+
+  <main>
+    <section class="pane active" id="tab-live">
+      <div class="stage">
+        <img id="stream" src="/stream.mjpg" alt="live camera">
+        <div class="hud">
+          <div class="hud-line"><span class="hud-key">תרגיל</span>
+            <span id="exercise-name">-</span></div>
+          <div class="hud-line"><span class="hud-key">חזרות</span>
+            <span id="rep-count">0</span> /
+            <span id="rep-goal">-</span></div>
+          <div class="hud-line"><span class="hud-key">מצב</span>
+            <span id="rep-state">-</span></div>
+          <div class="hud-line"><span class="hud-key">זווית ברך</span>
+            <span id="knee-angle">-</span></div>
+          <div class="verdict" id="verdict"></div>
+        </div>
+      </div>
+      <div class="feedback-log" id="feedback-log"></div>
+    </section>
+
+    <section class="pane" id="tab-session">
+      <p class="empty">סשן ריק. יופיע בסוף M6 (Session tab).</p>
+    </section>
+
+    <section class="pane" id="tab-progress">
+      <p class="empty">היסטוריה תופיע בסוף M6 (Progress tab).</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
