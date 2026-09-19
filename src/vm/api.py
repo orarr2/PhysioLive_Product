@@ -26,6 +26,7 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from fastapi import Depends, FastAPI, Header, HTTPException            # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware                      # noqa: E402
 from pydantic import BaseModel, Field                                   # noqa: E402
 
 from app.rag import RAGService                                          # noqa: E402
@@ -33,6 +34,20 @@ from vm.coach_llm import call_llm                                       # noqa: 
 
 
 app = FastAPI(title="PhysioLive VM", version="1.0.0")
+
+# The web app runs from GitHub Pages (orarr2.github.io) and the notebook
+# runs from a local host, both of which are cross-origin relative to the
+# tunnel URL. Allow all origins so any client can reach the service; the
+# Bearer-token check further down still gates real access.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Id"],
+    max_age=86400,
+)
+
 _rag = RAGService()
 
 
