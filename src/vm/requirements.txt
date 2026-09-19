@@ -10,8 +10,8 @@ pydantic>=2.6
 chromadb>=0.5
 onnxruntime>=1.17
 
-# LLM providers (both installed; env picks one)
-openai>=1.30
+# LLM providers. Groq is called through httpx directly (no openai SDK
+# needed) so we only pin anthropic for the optional Claude backend.
 anthropic>=0.34
 
 # HTTP client for outbound calls

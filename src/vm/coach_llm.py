@@ -2,8 +2,11 @@
 
 Reads `COACH_PROVIDER` from the environment and dispatches:
 
-- `groq` (default): Llama 3.3 70B on the Groq platform. OpenAI-compatible
-  API at https://api.groq.com/openai/v1, requires `GROQ_API_KEY`.
+- `groq` (default): Llama 3.3 70B on the Groq platform. Calls the
+  OpenAI-compatible endpoint at
+  `https://api.groq.com/openai/v1/chat/completions` directly with
+  `httpx`, so we do not depend on the `openai` SDK's evolving API.
+  Requires `GROQ_API_KEY`.
 - `anthropic`: Claude Haiku via the Anthropic Python SDK, requires
   `ANTHROPIC_API_KEY`.
 
@@ -15,6 +18,8 @@ from __future__ import annotations
 
 import os
 from typing import List, Sequence
+
+import httpx
 
 from app.rag.query import Chunk
 
@@ -47,24 +52,32 @@ def call_llm(exercise: str, verdict_level: str, verdict_text: str,
 
 
 def _call_groq(user_prompt: str) -> str:
-    from openai import OpenAI
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         raise RuntimeError("GROQ_API_KEY is not set")
     model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-    client = OpenAI(api_key=api_key,
-                    base_url="https://api.groq.com/openai/v1")
-    resp = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        max_tokens=140,
-        temperature=0.4,
-        timeout=8.0,
+    resp = httpx.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_tokens": 140,
+            "temperature": 0.4,
+        },
+        timeout=10.0,
     )
-    return (resp.choices[0].message.content or "").strip()
+    resp.raise_for_status()
+    data = resp.json()
+    return (data.get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "") or "").strip()
 
 
 def _call_anthropic(user_prompt: str) -> str:

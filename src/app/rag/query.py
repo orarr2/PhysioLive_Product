@@ -48,7 +48,8 @@ class RAGService:
         try:
             qvec = self.embedder.embed_one(query).tolist()
             raw = self.store.query_evidence(qvec, k=k, where=where)
-        except Exception:
+        except Exception as e:
+            print(f"rag search error ({type(e).__name__}): {e}")
             return []
         ids = (raw.get("ids") or [[]])[0]
         docs = (raw.get("documents") or [[]])[0]

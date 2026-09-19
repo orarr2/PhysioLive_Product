@@ -63,10 +63,16 @@ class Store:
 
     def query_evidence(self, embedding: List[float], k: int = 5,
                        where: Optional[dict] = None) -> dict:
-        return self.evidence().query(
-            query_embeddings=[list(map(float, embedding))],
-            n_results=k, where=where or {},
-        )
+        # ChromaDB treats an empty `where={}` as a filter that matches
+        # nothing on some backends. Only pass `where` when it actually
+        # carries a constraint.
+        kwargs = {
+            "query_embeddings": [list(map(float, embedding))],
+            "n_results": k,
+        }
+        if where:
+            kwargs["where"] = where
+        return self.evidence().query(**kwargs)
 
     def count_evidence(self) -> int:
         return int(self.evidence().count())
