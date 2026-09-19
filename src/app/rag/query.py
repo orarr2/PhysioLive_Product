@@ -71,13 +71,15 @@ class RAGService:
     def search_for_verdict(self, exercise: str, verdict_level: str,
                            verdict_text: str, angles: dict,
                            k: int = 5) -> List[Chunk]:
-        body_part = _body_part_for(exercise)
+        # We used to add `where={"body_part": <derived>}` to keep the
+        # LLM inside the relevant anatomy, but Chroma's filter matched
+        # nothing on the free-tier VM (metadata comparison quirk). The
+        # embedding query already picks the right chunks - "Squat" plus
+        # the rule message pulls knee content out of the seed corpus
+        # naturally - so we skip the filter and lean on similarity.
         query = _compose_query(exercise, verdict_level, verdict_text,
                                angles)
-        where = None
-        if body_part:
-            where = {"body_part": body_part}
-        return self.search(query, k=k, where=where)
+        return self.search(query, k=k)
 
 
 def _body_part_for(exercise: str) -> Optional[str]:
@@ -97,8 +99,19 @@ def _compose_query(exercise: str, verdict_level: str, verdict_text: str,
     if verdict_level and verdict_level != "good":
         parts.append(verdict_text or verdict_level)
     if angles:
-        kmin = angles.get("knee_min_deg")
+        # The metrics dict can arrive shaped either like the notebook
+        # (e.g. `knee_min_deg`) or like the web app (`knee`, `hip`,
+        # `shoulder`). Pick whichever key is present and surface it as
+        # natural language so the embedding query captures the joint of
+        # interest.
+        kmin = (angles.get("knee_min_deg") or angles.get("knee_min")
+                or angles.get("knee"))
         if kmin is not None:
-            parts.append(f"knee minimum flexion {int(kmin)} degrees")
+            parts.append(
+                f"knee flexion around {int(float(kmin))} degrees")
+        hmin = angles.get("hip_min") or angles.get("hip")
+        if hmin is not None:
+            parts.append(
+                f"hip angle around {int(float(hmin))} degrees")
     parts.append("rehabilitation form correction")
     return " - ".join(str(p) for p in parts if p)
