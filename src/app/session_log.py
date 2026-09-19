@@ -84,6 +84,7 @@ class SessionLog:
         self._conn.commit()
         self._pending_reps: List[tuple] = []
         self.session_id: Optional[str] = None
+        self._last_closed_id: Optional[str] = None
 
     def open_session(self, exercise: str, notes: str = "") -> str:
         session_id = uuid.uuid4().hex
@@ -161,15 +162,20 @@ class SessionLog:
                  self.session_id),
             )
             self._conn.commit()
+        self._last_closed_id = self.session_id
         self.session_id = None
 
     def current_session_summary(self) -> Optional[Dict]:
-        if not self.session_id:
+        target = self.session_id or self._last_closed_id
+        if not target:
             return None
+        return self.session_by_id(target)
+
+    def session_by_id(self, sid: str) -> Optional[Dict]:
         with self._lock:
             s = self._conn.execute(
                 "SELECT id, exercise, started_at FROM sessions WHERE id=?",
-                (self.session_id,),
+                (sid,),
             ).fetchone()
             if not s:
                 return None
@@ -178,7 +184,7 @@ class SessionLog:
                 "knee_min, hip_min, hip_max, shoulder_max, "
                 "torso_vertical_max, knee_over_toe_max, frames FROM reps "
                 "WHERE session_id=? ORDER BY rep_index ASC",
-                (self.session_id,),
+                (sid,),
             ).fetchall()
         return {
             "id": s[0],
