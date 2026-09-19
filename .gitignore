@@ -1,0 +1,70 @@
+# Environments
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+ENV/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Notebooks
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Project data (large or private). We keep the READMEs and .gitkeep
+# placeholders but everything else stays out.
+data/**
+!data/
+!data/*/
+!data/**/.gitkeep
+!data/**/README.md
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.webm
+
+# Model weights (fetched on demand)
+*.pt
+*.onnx
+*.keras
+*.h5
+*.joblib
+*_openvino_model/
+
+# Session outputs (top-level only; data/sessions/.gitkeep is tracked)
+/sessions/
+*.db
+*.sqlite
+*.sqlite3
+
+# User config
+config.local.yaml
+~/.physiolive/
+
+# OS / temp
+*.log
+*.tmp
+tmp/
+
+# Scratchpad from tools
+scratchpad/

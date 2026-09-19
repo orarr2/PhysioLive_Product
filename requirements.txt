@@ -1,0 +1,36 @@
+# PhysioLive - local dependencies
+# Python 3.10 or newer.
+
+# Pose estimation + inference
+ultralytics>=8.2.0
+opencv-python>=4.9
+openvino>=2024.0
+mediapipe>=0.10
+
+# Numerics
+numpy>=1.26
+pandas>=2.2
+scipy>=1.11
+
+# Notebook + widgets
+jupyter>=1.0
+ipywidgets>=8.1
+
+# TTS (local, no cloud)
+pyttsx3>=2.90
+
+# Session persistence and system telemetry
+psutil>=5.9
+
+# HTTP client for the VM (used from M4 onwards)
+requests>=2.31
+
+# YAML config
+PyYAML>=6.0
+
+# ONNX runtime for the rep-classifier (used from M5 onwards)
+onnxruntime>=1.17
+
+# Optional but recommended
+Pillow>=10.0
+matplotlib>=3.8
