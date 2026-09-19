@@ -21,12 +21,16 @@ export async function requestCoach({
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 3500);
+    const headers = {
+      "Content-Type": "application/json",
+      "X-User-Id": userId || "",
+    };
+    if (CONFIG.apiToken) {
+      headers["Authorization"] = `Bearer ${CONFIG.apiToken}`;
+    }
     const res = await fetch(`${CONFIG.vmOrigin}/coach/feedback`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-User-Id": userId || "",
-      },
+      headers,
       body: JSON.stringify({
         exercise,
         verdict_level: verdictLevel,
