@@ -4,9 +4,11 @@ fastapi>=0.110
 uvicorn[standard]>=0.27
 pydantic>=2.6
 
-# Retrieval stack
+# Retrieval stack. ChromaDB ships onnxruntime + its DefaultEmbeddingFunction
+# (all-MiniLM-L6-v2 in ONNX form), so no separate sentence-transformers
+# install is needed - which would drag in torch and 2 GB of CUDA wheels.
 chromadb>=0.5
-sentence-transformers>=2.7
+onnxruntime>=1.17
 
 # LLM providers (both installed; env picks one)
 openai>=1.30
