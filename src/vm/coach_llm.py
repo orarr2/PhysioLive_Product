@@ -55,7 +55,10 @@ def _call_groq(user_prompt: str) -> str:
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         raise RuntimeError("GROQ_API_KEY is not set")
-    model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+    # Default picked in 2026-09 because it appears on every free-tier
+    # Groq key without extra access. Override via GROQ_MODEL if you need
+    # bigger (openai/gpt-oss-120b) or specialised (qwen/qwen3-8-27b).
+    model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
     resp = httpx.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={

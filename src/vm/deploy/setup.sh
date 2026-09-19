@@ -60,9 +60,12 @@ echo "=== 5. env placeholders ==="
 if [ ! -f "${ENV_FILE}" ]; then
     cat > "${ENV_FILE}" <<'EOF'
 # PhysioLive VM environment. Edit before starting the service.
+# GROQ_MODEL: query https://api.groq.com/openai/v1/models with your key
+# to see what your account can run today (Groq's catalog changes over time).
+# openai/gpt-oss-20b is a safe generalist default across free-tier keys.
 COACH_PROVIDER=groq
 GROQ_API_KEY=CHANGE_ME
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-20b
 PHYSIOLIVE_API_TOKEN=CHANGE_ME
 EOF
     chmod 600 "${ENV_FILE}"

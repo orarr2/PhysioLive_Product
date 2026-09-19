@@ -97,7 +97,7 @@ def health() -> Dict:
         "chunks_count": count,
         "coach_provider": os.environ.get("COACH_PROVIDER", "groq"),
         "coach_model": os.environ.get("GROQ_MODEL",
-                                      "llama-3.3-70b-versatile"),
+                                      "openai/gpt-oss-20b"),
     }
 
 
