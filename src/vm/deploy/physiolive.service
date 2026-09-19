@@ -1,0 +1,21 @@
+[Unit]
+Description=PhysioLive RAG and coach service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=physiolive
+Group=physiolive
+EnvironmentFile=/etc/physiolive/env
+WorkingDirectory=/opt/physiolive/repo/src
+ExecStart=/opt/physiolive/venv/bin/uvicorn vm.api:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=always
+RestartSec=10
+MemoryHigh=550M
+MemoryMax=700M
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

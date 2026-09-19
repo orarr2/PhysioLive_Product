@@ -1,0 +1,17 @@
+# PhysioLive VM service dependencies (slim, no torch/opencv/mediapipe).
+
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+
+# Retrieval stack
+chromadb>=0.5
+sentence-transformers>=2.7
+
+# LLM providers (both installed; env picks one)
+openai>=1.30
+anthropic>=0.34
+
+# HTTP client for outbound calls
+requests>=2.31
+httpx>=0.27

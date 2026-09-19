@@ -1,16 +1,19 @@
-"""Coach agent - one-sentence, citation-grounded verbal feedback.
+"""Coach agent client.
 
-The coach runs in a background thread so a slow LLM call does not stall
-the live loop. It takes a rep verdict plus the top few retrieved chunks
-and asks the language model for a short, evidence-grounded message. The
-model is instructed to cite only the chunks it was given; if the API is
-unavailable or the environment variable is missing, the coach quietly
-falls back to the deterministic rule message so the pipeline keeps
-running.
+Turns each rep verdict into a natural, citation-grounded one-sentence
+message by calling the PhysioLive VM's `/coach/feedback` endpoint.
+The VM handles the retrieval (RAG) and the LLM call; the client just
+sends the rep summary and consumes the reply.
+
+Runs in a background thread so a slow VM round-trip does not stall the
+live loop. When the VM URL or token is missing, or the request fails,
+the client quietly falls back to the plain rule text so the pipeline
+keeps moving.
 
 Environment:
-    ANTHROPIC_API_KEY   the key used to authenticate the model call
-    COACH_MODEL         override the default model id
+    PHYSIOLIVE_VM_URL       origin of the coach service, e.g.
+                            https://physiolive.example.com
+    PHYSIOLIVE_API_TOKEN    Bearer token expected by the VM
 """
 from __future__ import annotations
 
@@ -18,26 +21,8 @@ import os
 import queue
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, List, Optional
-
-from ..rag.query import Chunk
-
-
-DEFAULT_MODEL = os.environ.get("COACH_MODEL", "claude-haiku-4-5")
-
-SYSTEM_PROMPT = (
-    "You are a virtual physiotherapy coach. The user just finished a "
-    "repetition of an exercise. You will receive a rule-based verdict "
-    "and a short set of evidence chunks that the retrieval layer picked "
-    "for this event.\n\n"
-    "Reply with exactly ONE short sentence in English (max 22 words) "
-    "that either encourages the user or corrects the form issue. "
-    "If you cite a fact, cite ONLY facts that appear in the evidence "
-    "chunks. Do NOT invent statistics or references. If none of the "
-    "chunks is relevant, give a plain motivational sentence without "
-    "citing anything."
-)
 
 
 @dataclass
@@ -45,8 +30,8 @@ class CoachRequest:
     exercise: str
     verdict_level: str
     verdict_text: str
-    angles: dict
-    chunks: List[Chunk]
+    angles: dict = field(default_factory=dict)
+    chunks: List = field(default_factory=list)  # retained for API-compat
 
 
 @dataclass
@@ -57,14 +42,16 @@ class CoachResponse:
 
 
 class CoachAgent:
-    def __init__(self, model: str = DEFAULT_MODEL,
-                 api_key: Optional[str] = None,
-                 timeout_s: float = 3.0) -> None:
-        self.model = model
-        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+    def __init__(self, vm_url: Optional[str] = None,
+                 api_token: Optional[str] = None,
+                 timeout_s: float = 3.5) -> None:
+        self.vm_url = (vm_url or os.environ.get("PHYSIOLIVE_VM_URL")
+                       or "").rstrip("/")
+        self.api_token = (api_token
+                          or os.environ.get("PHYSIOLIVE_API_TOKEN") or "")
+        # Retained for backward-compat with old notebook check.
+        self.api_key = self.api_token
         self.timeout_s = timeout_s
-        self._client = None
-        self._client_error: Optional[str] = None
         self._q: "queue.Queue[Optional[tuple]]" = queue.Queue(maxsize=2)
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
@@ -87,11 +74,7 @@ class CoachAgent:
 
     def request(self, req: CoachRequest,
                 on_response: Callable[[CoachResponse], None]) -> None:
-        """Async: schedule a coach reply and hand it to `on_response`.
-
-        The debounce keeps the coach quiet when reps close faster than
-        the coach can generate a message.
-        """
+        """Async: schedule a coach reply and hand it to `on_response`."""
         now = time.monotonic()
         if now - self._last_ts < self._min_gap:
             return
@@ -129,74 +112,34 @@ class CoachAgent:
                 print(f"coach callback error: {e}")
 
     def _handle(self, req: CoachRequest) -> CoachResponse:
-        client = self._ensure_client()
-        if client is None:
+        if not self.vm_url:
             return CoachResponse(text=req.verdict_text or "",
-                                 source_urls=[c.source_url for c in req.chunks
-                                              if c.source_url],
-                                 used_llm=False)
-        prompt = _build_user_prompt(req)
-        message = client.messages.create(
-            model=self.model,
-            max_tokens=140,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        text = _extract_text(message).strip()
-        if not text:
-            text = req.verdict_text or ""
-        return CoachResponse(
-            text=text,
-            source_urls=[c.source_url for c in req.chunks if c.source_url],
-            used_llm=True,
-        )
-
-    def _ensure_client(self):
-        if self._client is not None:
-            return self._client
-        if not self.api_key:
-            return None
+                                 source_urls=[], used_llm=False)
         try:
-            import anthropic
-            self._client = anthropic.Anthropic(api_key=self.api_key)
-            return self._client
+            import requests
         except Exception as e:
-            self._client_error = f"{type(e).__name__}: {e}"
-            print(f"coach: anthropic client unavailable ({e})")
-            return None
-
-
-def _build_user_prompt(req: CoachRequest) -> str:
-    lines = [
-        f"Exercise: {req.exercise}",
-        f"Verdict: {req.verdict_level or 'unknown'}",
-        f"Rule message: {req.verdict_text or '(none)'}",
-    ]
-    if req.angles:
-        lines.append(f"Angles: {req.angles}")
-    lines.append("")
-    lines.append("Evidence chunks:")
-    if req.chunks:
-        for i, c in enumerate(req.chunks, 1):
-            title = c.title or "untitled"
-            src = c.source_url or "no url"
-            snippet = (c.text or "").replace("\n", " ")
-            snippet = snippet[:400] + ("..." if len(c.text) > 400 else "")
-            lines.append(f"[{i}] ({title}) {snippet}  <{src}>")
-    else:
-        lines.append("(no evidence retrieved)")
-    lines.append("")
-    lines.append("Reply now with the single-sentence coaching message.")
-    return "\n".join(lines)
-
-
-def _extract_text(message) -> str:
-    try:
-        parts = getattr(message, "content", None) or []
-        for p in parts:
-            t = getattr(p, "text", None)
-            if t:
-                return t
-    except Exception:
-        pass
-    return ""
+            print(f"coach: requests unavailable ({e})")
+            return CoachResponse(text=req.verdict_text or "",
+                                 source_urls=[], used_llm=False)
+        headers = {"Content-Type": "application/json"}
+        if self.api_token:
+            headers["Authorization"] = f"Bearer {self.api_token}"
+        payload = {
+            "exercise": req.exercise,
+            "verdict_level": req.verdict_level,
+            "verdict_text": req.verdict_text,
+            "metrics": req.angles or {},
+        }
+        r = requests.post(f"{self.vm_url}/coach/feedback",
+                          json=payload, headers=headers,
+                          timeout=self.timeout_s)
+        if r.status_code != 200:
+            print(f"coach: HTTP {r.status_code} {r.text[:200]}")
+            return CoachResponse(text=req.verdict_text or "",
+                                 source_urls=[], used_llm=False)
+        data = r.json()
+        return CoachResponse(
+            text=(data.get("message") or req.verdict_text or ""),
+            source_urls=list(data.get("sources") or []),
+            used_llm=bool(data.get("used_llm")),
+        )
