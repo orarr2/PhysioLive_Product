@@ -1,0 +1,45 @@
+{
+  "exercise": "squat",
+  "source_file": "squat_00.mp4",
+  "fps": 59.94,
+  "frame_count": 7424,
+  "processed_frames": 495,
+  "frame_stride": 15,
+  "reps": [
+    {
+      "index": 1,
+      "duration_s": 41.29,
+      "eccentric_s": 0.0,
+      "concentric_s": 36.54,
+      "hold_s": 4.75,
+      "knee_min_deg": 52.87,
+      "knee_max_deg": 177.71,
+      "rom_deg": 124.84,
+      "torso_max_deg": 52.72,
+      "knee_over_toe_max_norm": 1.02,
+      "frames": 166
+    },
+    {
+      "index": 2,
+      "duration_s": 21.02,
+      "eccentric_s": 0.0,
+      "concentric_s": 19.27,
+      "hold_s": 1.75,
+      "knee_min_deg": 47.14,
+      "knee_max_deg": 176.98,
+      "rom_deg": 129.84,
+      "torso_max_deg": 27.91,
+      "knee_over_toe_max_norm": 0.97,
+      "frames": 85
+    }
+  ],
+  "summary": {
+    "rep_count": 2,
+    "knee_min_p10": 47.14,
+    "knee_min_p50": 50.004999999999995,
+    "knee_min_p90": 52.87,
+    "rom_median_deg": 127.34,
+    "tempo_ecc_median_s": 0.0,
+    "tempo_con_median_s": 27.905
+  }
+}

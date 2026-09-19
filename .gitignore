@@ -31,10 +31,11 @@ dist/
 Thumbs.db
 
 # Project data (large or private). We keep the READMEs, .gitkeep
-# placeholders and the seed corpus in git; everything else stays out.
+# placeholders, the seed corpus, and reference signatures in git;
+# everything else stays out.
 data/**
 !data/
-!data/*/
+!data/**/
 !data/**/.gitkeep
 !data/**/README.md
 !data/corpus_seed/*.json

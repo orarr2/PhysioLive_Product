@@ -1,7 +1,7 @@
 {
   "id": "squat",
   "name": "Squat",
-  "pose_backend": "mediapipe_holistic",
+  "pose_backend": "yolo",
   "camera_view": "front",
   "rep_goal": 12,
   "rep_definition": {

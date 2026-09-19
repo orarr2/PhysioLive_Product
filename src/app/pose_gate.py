@@ -158,6 +158,12 @@ def _load_mp_pose():
     with _LOAD_LOCK:
         if _mp_pose is None:
             import mediapipe as mp
+            if not hasattr(mp, "solutions"):
+                raise RuntimeError(
+                    "The installed mediapipe build does not include the "
+                    "legacy solutions API. Install a compatible version "
+                    "(`pip install mediapipe==0.10.14` on Python 3.9) or "
+                    "set pose_backend to 'yolo' in the exercise config.")
             _mp_pose = mp.solutions.pose.Pose(
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5,
@@ -173,6 +179,12 @@ def _load_mp_holistic():
     with _LOAD_LOCK:
         if _mp_holistic is None:
             import mediapipe as mp
+            if not hasattr(mp, "solutions"):
+                raise RuntimeError(
+                    "The installed mediapipe build does not include the "
+                    "legacy solutions API. Install a compatible version "
+                    "(`pip install mediapipe==0.10.14` on Python 3.9) or "
+                    "set pose_backend to 'yolo' in the exercise config.")
             _mp_holistic = mp.solutions.holistic.Holistic(
                 min_detection_confidence=0.5,
                 min_tracking_confidence=0.5,
