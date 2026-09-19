@@ -71,28 +71,58 @@ def _call_groq(user_prompt: str) -> str:
     # Groq key without extra access. Override via GROQ_MODEL if you need
     # bigger (openai/gpt-oss-120b) or specialised (qwen/qwen3-8-27b).
     model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        # 800 leaves room for the reasoning trace on gpt-oss models
+        # (they emit chain-of-thought BEFORE the answer) plus the
+        # actual sentence. With 140 the whole budget got eaten by
+        # reasoning and content came back empty.
+        "max_tokens": 800,
+        "temperature": 0.6,
+    }
+    # gpt-oss models accept reasoning_effort in {low, medium, high}.
+    # low keeps the answer fast and stops the model from spending
+    # hundreds of tokens on chain-of-thought before writing content.
+    if model.startswith("openai/gpt-oss"):
+        payload["reasoning_effort"] = "low"
     resp = httpx.post(
         "https://api.groq.com/openai/v1/chat/completions",
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
-        json={
-            "model": model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            "max_tokens": 140,
-            "temperature": 0.6,
-        },
-        timeout=10.0,
+        json=payload,
+        timeout=15.0,
     )
     resp.raise_for_status()
     data = resp.json()
-    return (data.get("choices", [{}])[0]
-                .get("message", {})
-                .get("content", "") or "").strip()
+    choice = (data.get("choices") or [{}])[0]
+    msg = choice.get("message") or {}
+    content = (msg.get("content") or "").strip()
+    if content:
+        return content
+    # Fallback: gpt-oss sometimes drops the answer into `reasoning`
+    # when max_tokens clips before content is written. Better a
+    # trace-shaped reply than an empty string that makes the api
+    # server fall all the way back to the rule verdict.
+    reasoning = (msg.get("reasoning") or "").strip()
+    if reasoning:
+        # Keep only the last sentence-shaped fragment - the reasoning
+        # trace often ends with the model deciding what to say.
+        last = reasoning.replace("\n", " ").split(".")
+        for piece in reversed(last):
+            s = piece.strip()
+            if len(s) >= 8:
+                return s if s.endswith(".") else s + "."
+        return reasoning
+    print(f"coach: empty content and empty reasoning from {model}; "
+          f"finish_reason={choice.get('finish_reason')!r} "
+          f"usage={data.get('usage')}")
+    return ""
 
 
 def _call_anthropic(user_prompt: str) -> str:
