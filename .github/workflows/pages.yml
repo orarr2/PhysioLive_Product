@@ -1,0 +1,42 @@
+name: Deploy PhysioLive web app to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "webapp/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch: {}
+
+# Allow one concurrent deployment; skip queued runs on newer pushes.
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+# Read-only access to code, write access to Pages deployments.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload webapp folder as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./webapp
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
