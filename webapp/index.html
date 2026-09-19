@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0e1116">
+  <title>PhysioLive</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">PhysioLive</div>
+    <div class="header-actions">
+      <select id="exercise-select" class="exercise-select">
+        <option value="squat">Squat</option>
+        <option value="lunge">Forward Lunge</option>
+        <option value="glute_bridge">Glute Bridge</option>
+        <option value="leg_raise">Straight Leg Raise</option>
+        <option value="shoulder_abduction">Shoulder Abduction</option>
+      </select>
+      <button id="camera-btn" class="btn">Camera</button>
+      <button id="signin-btn" class="btn ghost">Sign in</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="stage" id="stage">
+      <video id="cam" playsinline autoplay muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="hud">
+        <div class="hud-line"><span class="hud-key">Exercise</span>
+          <span id="exercise-name">Squat</span></div>
+        <div class="hud-line"><span class="hud-key">Reps</span>
+          <span id="rep-count">0</span> /
+          <span id="rep-goal">-</span></div>
+        <div class="hud-line"><span class="hud-key">Phase</span>
+          <span id="rep-state">Idle</span></div>
+        <div class="hud-line"><span class="hud-key">Primary angle</span>
+          <span id="primary-angle">-</span></div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+      <div class="placeholder" id="placeholder">
+        <p>Tap <b>Camera</b> to start. You will be asked to allow camera
+          access. The video never leaves your device.</p>
+      </div>
+    </section>
+
+    <section class="side-panel">
+      <div class="feedback-log" id="feedback-log"></div>
+      <div class="session-stats" id="session-stats">
+        <div class="stat"><span class="k">Session reps</span>
+          <span class="v" id="stat-reps">0</span></div>
+        <div class="stat"><span class="k">Good</span>
+          <span class="v" id="stat-good">0</span></div>
+        <div class="stat"><span class="k">Warnings</span>
+          <span class="v" id="stat-warn">0</span></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="signin-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-body">
+      <h2>Sign in</h2>
+      <p>Sign in with Google to sync your session history across devices.
+        Skip to keep everything private on this device only.</p>
+      <div id="google-signin-button"></div>
+      <button id="signin-skip" class="btn ghost">Skip for now</button>
+    </div>
+  </div>
+
+  <script type="module" src="assets/app.js"></script>
+</body>
+</html>
