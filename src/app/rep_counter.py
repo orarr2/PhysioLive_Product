@@ -5,9 +5,8 @@ Runs a simple state machine on the primary angle:
     STANDING  --(angle < bottom_deg + hyst for confirm_frames)-->  BOTTOM
     BOTTOM    --(angle > standing_deg - hyst for confirm_frames)--> STANDING (+1 rep)
 
-`confirm_frames` is the 2-tick confirmation borrowed from the YOLO26
-project - a single-frame dip does not count as a rep, and a single-frame
-spike does not close one.
+`confirm_frames` is a two-tick confirmation: a single-frame dip does not
+count as a rep, and a single-frame spike does not close one.
 
 While the rep is active, the counter tracks the rep's angle min and max
 so downstream rules (rom_below, knee_over_toe max within rep, torso lean

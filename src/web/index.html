@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="he" dir="rtl">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -22,14 +22,14 @@
       <div class="stage">
         <img id="stream" src="/stream.mjpg" alt="live camera">
         <div class="hud">
-          <div class="hud-line"><span class="hud-key">תרגיל</span>
+          <div class="hud-line"><span class="hud-key">Exercise</span>
             <span id="exercise-name">-</span></div>
-          <div class="hud-line"><span class="hud-key">חזרות</span>
+          <div class="hud-line"><span class="hud-key">Reps</span>
             <span id="rep-count">0</span> /
             <span id="rep-goal">-</span></div>
-          <div class="hud-line"><span class="hud-key">מצב</span>
+          <div class="hud-line"><span class="hud-key">Phase</span>
             <span id="rep-state">-</span></div>
-          <div class="hud-line"><span class="hud-key">זווית ברך</span>
+          <div class="hud-line"><span class="hud-key">Knee angle</span>
             <span id="knee-angle">-</span></div>
           <div class="verdict" id="verdict"></div>
         </div>
@@ -38,11 +38,15 @@
     </section>
 
     <section class="pane" id="tab-session">
-      <p class="empty">סשן ריק. יופיע בסוף M6 (Session tab).</p>
+      <div id="session-body">
+        <p class="empty">Start a session to see per-rep charts here.</p>
+      </div>
     </section>
 
     <section class="pane" id="tab-progress">
-      <p class="empty">היסטוריה תופיע בסוף M6 (Progress tab).</p>
+      <div id="progress-body">
+        <p class="empty">Progress across past sessions will appear here.</p>
+      </div>
     </section>
   </main>
 

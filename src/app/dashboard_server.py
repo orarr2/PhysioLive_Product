@@ -9,7 +9,7 @@ I/O.
 The pipeline is the producer:
     STATE.push_frame(jpeg_bytes)
     STATE.set_state({...})
-The browser is the consumer. Producing at 15fps and consuming at 15fps
+The browser is the consumer. Producing at 15 fps and consuming at 15 fps
 keeps the loop lean; when the browser cannot keep up, its MJPEG parser
 drops on its side, not ours.
 """
@@ -18,7 +18,6 @@ from __future__ import annotations
 import http.server
 import json
 import socket
-import socketserver
 import threading
 import time
 from pathlib import Path
@@ -147,7 +146,7 @@ class DashboardServer:
                  directory: Optional[Path] = None) -> None:
         self.port = port
         self.directory = directory or WEB_DIR
-        self._httpd: Optional[socketserver.ThreadingMixIn] = None
+        self._httpd = None
         self._thread: Optional[threading.Thread] = None
 
     def start(self) -> str:

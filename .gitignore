@@ -68,3 +68,6 @@ tmp/
 
 # Scratchpad from tools
 scratchpad/
+
+# Internal Hebrew planning document (kept locally, out of the public repo)
+PhysioLive_Product_Spec.md

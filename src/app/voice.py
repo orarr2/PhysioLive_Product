@@ -2,9 +2,9 @@
 
 `pyttsx3.say()` blocks until the utterance finishes, so we run it in a
 dedicated worker thread with a bounded queue. When the queue is full the
-newest message wins - stale feedback is worse than none. A debounce holds
-back near-duplicate messages that arrive within `dedup_seconds` of each
-other so the coach does not spam the same sentence rep after rep.
+newest message wins - stale feedback is worse than none. A debounce
+holds back near-duplicate messages that arrive within `dedup_seconds` of
+each other so the coach does not spam the same sentence rep after rep.
 """
 from __future__ import annotations
 
@@ -16,8 +16,7 @@ from typing import Optional
 
 class VoiceWorker:
     def __init__(self, rate: int = 175, volume: float = 1.0,
-                 dedup_seconds: float = 2.5,
-                 language: str = "en") -> None:
+                 dedup_seconds: float = 2.5) -> None:
         self._q: "queue.Queue[Optional[str]]" = queue.Queue(maxsize=1)
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
@@ -26,7 +25,6 @@ class VoiceWorker:
         self._dedup = dedup_seconds
         self.rate = rate
         self.volume = volume
-        self.language = language
 
     def start(self) -> None:
         if self._thread is not None:
@@ -80,7 +78,6 @@ class VoiceWorker:
             engine = pyttsx3.init()
             engine.setProperty("rate", self.rate)
             engine.setProperty("volume", self.volume)
-            self._select_voice(engine)
         except Exception as e:
             print(f"voice: engine init failed ({e}); voice disabled")
             return
@@ -96,17 +93,3 @@ class VoiceWorker:
                 engine.runAndWait()
             except Exception as e:
                 print(f"voice: say failed ({e})")
-
-    def _select_voice(self, engine) -> None:
-        try:
-            voices = engine.getProperty("voices")
-        except Exception:
-            return
-        wanted = self.language.lower()
-        for v in voices:
-            langs = [str(l).lower() for l in getattr(v, "languages", []) or []]
-            name = (getattr(v, "name", "") or "").lower()
-            hay = " ".join(langs) + " " + name
-            if wanted in hay or (wanted == "he" and ("hebrew" in hay or "he-il" in hay)):
-                engine.setProperty("voice", v.id)
-                return

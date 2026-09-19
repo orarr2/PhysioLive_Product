@@ -1,22 +1,20 @@
 """Deterministic form-check rules.
 
-Each rule is a dict with an `id`, a `level` ('good'|'warn'|'bad'), messages
-in Hebrew and English, and a `condition` block. Conditions supported by
-the M2 evaluator:
+Each rule is a dict with an `id`, a `level` ('good' | 'warn' | 'bad'), a
+`message` string, and a `condition` block. Supported conditions:
 
-- `rom_below`: rep's `knee_min_deg` did not go below `target_max_deg`.
-- `knee_over_toe_side`: rep's `knee_over_toe_max_norm` exceeded threshold
-  (positive = knee past ankle in image-x).
+- `rom_below`: rep's `knee_min_deg` did not reach `target_max_deg`.
+- `knee_over_toe_side`: rep's `knee_over_toe_max_norm` exceeded threshold.
 - `torso_vertical_gt`: rep's `torso_vertical_max_deg` exceeded threshold.
 
-Rules run against a `RepSample` produced by `rep_counter.RepCounter`. The
-evaluator returns a list of violations plus one summary verdict that the
-UI colors and the voice worker speaks.
+Rules run against a `RepSample` from `rep_counter.RepCounter`. The
+evaluator returns a `Verdict` (level and message) plus the full
+violations list, worst level first.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 from .rep_counter import RepSample
 
@@ -28,15 +26,13 @@ LEVEL_ORDER = {"good": 0, "warn": 1, "bad": 2}
 class Violation:
     rule_id: str
     level: str
-    message_he: str
-    message_en: str
+    message: str
 
 
 @dataclass
 class Verdict:
     level: str
-    text_he: str
-    text_en: str
+    text: str
     violations: List[Violation]
 
 
@@ -60,8 +56,7 @@ def _eval_condition(cond: dict, sample: RepSample) -> bool:
     return False
 
 
-def evaluate(sample: RepSample, rules: List[dict],
-             language: str = "he") -> Verdict:
+def evaluate(sample: RepSample, rules: List[dict]) -> Verdict:
     violations: List[Violation] = []
     for r in rules:
         cond = r.get("condition") or {}
@@ -69,17 +64,12 @@ def evaluate(sample: RepSample, rules: List[dict],
             violations.append(Violation(
                 rule_id=r["id"],
                 level=r.get("level", "warn"),
-                message_he=r.get("message_he", ""),
-                message_en=r.get("message_en", ""),
+                message=r.get("message", ""),
             ))
     if not violations:
         return Verdict(level="good",
-                       text_he="חזרה טובה. כל הכבוד.",
-                       text_en="Good rep. Well done.",
+                       text="Good rep. Nicely done.",
                        violations=[])
     violations.sort(key=lambda v: LEVEL_ORDER.get(v.level, 0), reverse=True)
     top = violations[0]
-    return Verdict(level=top.level,
-                   text_he=top.message_he,
-                   text_en=top.message_en,
-                   violations=violations)
+    return Verdict(level=top.level, text=top.message, violations=violations)

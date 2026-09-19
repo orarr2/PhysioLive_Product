@@ -1,8 +1,11 @@
-"""Joint-angle math on top of COCO-17 keypoints.
+"""Joint-angle math on top of the canonical 17-point layout.
 
 All angles are in degrees. Every function returns `None` when any
 required keypoint is below `min_conf`, so callers never see a fabricated
 verdict.
+
+Input is a flat list of 17 `[x, y, conf]` triples in COCO order. If you
+have a `PoseFrame` from `pose_gate.PoseInferencer`, pass its `.coco17`.
 """
 from __future__ import annotations
 
@@ -11,7 +14,7 @@ from typing import Optional
 
 from .pose_gate import (
     KP_MIN_CONF, L_ANKLE, L_ELBOW, L_HIP, L_KNEE, L_SHOULDER, L_WRIST,
-    NOSE, R_ANKLE, R_ELBOW, R_HIP, R_KNEE, R_SHOULDER, R_WRIST,
+    R_ANKLE, R_ELBOW, R_HIP, R_KNEE, R_SHOULDER, R_WRIST,
 )
 
 
@@ -23,7 +26,7 @@ def _pt(kps, idx, min_conf):
 
 
 def _angle3(a, b, c) -> float:
-    """Angle at `b` formed by `a-b-c`, in degrees. b is the vertex."""
+    """Angle at `b` formed by `a-b-c`, in degrees. `b` is the vertex."""
     ax, ay = a
     bx, by = b
     cx, cy = c
@@ -99,8 +102,8 @@ def knee_over_toe_offset(kps, side: str,
                          min_conf: float = KP_MIN_CONF) -> Optional[float]:
     """Signed horizontal offset (pixels) of the knee past the ankle.
 
-    Positive = knee is FORWARD of the ankle in image coordinates,
-    which typically means "knee over toe" for a squat viewed from the side.
+    Positive = knee is forward of the ankle in image-x, which is the
+    "knee over toe" position when the user is filmed from the side.
     Returns None when either joint is not confidently seen.
     """
     if side == "left":
@@ -115,8 +118,8 @@ def knee_over_toe_offset(kps, side: str,
 
 
 def torso_length(kps, min_conf: float = KP_MIN_CONF) -> Optional[float]:
-    """Reference distance used to normalize pixel offsets. Shoulder-mid to
-    hip-mid Euclidean distance."""
+    """Shoulder-mid to hip-mid Euclidean distance. Used to normalise
+    pixel offsets across users and camera distances."""
     l_sh = _pt(kps, L_SHOULDER, min_conf)
     r_sh = _pt(kps, R_SHOULDER, min_conf)
     l_hp = _pt(kps, L_HIP, min_conf)

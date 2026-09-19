@@ -1,3 +1,3 @@
 """PhysioLive application package."""
 
-__version__ = "0.2.0-M2"
+__version__ = "0.3.0"
