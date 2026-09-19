@@ -1,0 +1,36 @@
+{
+  "id": "leg_raise",
+  "name": "Straight Leg Raise",
+  "pose_backend": "mediapipe_holistic",
+  "camera_view": "side",
+  "rep_goal": 12,
+  "rep_definition": {
+    "primary_angle": "hip_left",
+    "secondary_angle": "hip_right",
+    "standing_deg": 170,
+    "bottom_deg": 110,
+    "hysteresis_deg": 6,
+    "confirm_frames": 2
+  },
+  "rules": [
+    {
+      "id": "insufficient_lift",
+      "level": "warn",
+      "message": "Leg did not lift high enough. Aim for the thigh to reach roughly parallel with the wall.",
+      "condition": {
+        "kind": "hip_flexion_below",
+        "target_deg": 120
+      }
+    },
+    {
+      "id": "knee_bent",
+      "level": "warn",
+      "message": "Keep the raised leg straight. Bending the knee reduces quadriceps activation.",
+      "condition": {
+        "kind": "knee_flexion_gt",
+        "threshold_deg": 20
+      }
+    }
+  ],
+  "reference_signature_ids": []
+}

@@ -1,0 +1,37 @@
+{
+  "id": "shoulder_abduction",
+  "name": "Shoulder Abduction",
+  "pose_backend": "mediapipe_holistic",
+  "camera_view": "front",
+  "rep_goal": 15,
+  "rep_definition": {
+    "primary_angle": "shoulder_left",
+    "secondary_angle": "shoulder_right",
+    "standing_deg": 5,
+    "bottom_deg": 85,
+    "hysteresis_deg": 6,
+    "confirm_frames": 2,
+    "direction": "increasing"
+  },
+  "rules": [
+    {
+      "id": "insufficient_range",
+      "level": "warn",
+      "message": "Arm did not reach shoulder height. Raise the elbow until it is level with the shoulder.",
+      "condition": {
+        "kind": "shoulder_abduction_below",
+        "target_deg": 80
+      }
+    },
+    {
+      "id": "elbow_bent",
+      "level": "warn",
+      "message": "Keep the elbow softly straight during the raise.",
+      "condition": {
+        "kind": "elbow_flexion_gt",
+        "threshold_deg": 35
+      }
+    }
+  ],
+  "reference_signature_ids": []
+}

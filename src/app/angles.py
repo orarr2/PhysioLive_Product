@@ -54,7 +54,7 @@ def knee_angle(kps, side: str, min_conf: float = KP_MIN_CONF) -> Optional[float]
 
 
 def hip_angle(kps, side: str, min_conf: float = KP_MIN_CONF) -> Optional[float]:
-    """Shoulder-hip-knee angle."""
+    """Shoulder-hip-knee angle. Larger = hip more extended (straighter)."""
     if side == "left":
         sh, hip, knee = L_SHOULDER, L_HIP, L_KNEE
     else:
@@ -68,6 +68,7 @@ def hip_angle(kps, side: str, min_conf: float = KP_MIN_CONF) -> Optional[float]:
 
 
 def elbow_angle(kps, side: str, min_conf: float = KP_MIN_CONF) -> Optional[float]:
+    """Shoulder-elbow-wrist angle. 180 = straight arm."""
     if side == "left":
         sh, el, wr = L_SHOULDER, L_ELBOW, L_WRIST
     else:
@@ -78,6 +79,23 @@ def elbow_angle(kps, side: str, min_conf: float = KP_MIN_CONF) -> Optional[float
     if not (a and b and c):
         return None
     return _angle3(a, b, c)
+
+
+def shoulder_angle(kps, side: str,
+                   min_conf: float = KP_MIN_CONF) -> Optional[float]:
+    """Angle between the torso (shoulder-hip axis) and the upper arm
+    (shoulder-elbow axis). 0 = arm hangs along the body, 90 = arm
+    horizontal (abducted), 180 = arm overhead."""
+    if side == "left":
+        sh_i, el_i, hip_i = L_SHOULDER, L_ELBOW, L_HIP
+    else:
+        sh_i, el_i, hip_i = R_SHOULDER, R_ELBOW, R_HIP
+    sh = _pt(kps, sh_i, min_conf)
+    el = _pt(kps, el_i, min_conf)
+    hip = _pt(kps, hip_i, min_conf)
+    if not (sh and el and hip):
+        return None
+    return _angle3(hip, sh, el)
 
 
 def torso_vertical_angle(kps, min_conf: float = KP_MIN_CONF) -> Optional[float]:
@@ -142,6 +160,10 @@ def all_angles(kps, min_conf: float = KP_MIN_CONF) -> dict:
         "knee_right": knee_angle(kps, "right", min_conf),
         "hip_left": hip_angle(kps, "left", min_conf),
         "hip_right": hip_angle(kps, "right", min_conf),
+        "elbow_left": elbow_angle(kps, "left", min_conf),
+        "elbow_right": elbow_angle(kps, "right", min_conf),
+        "shoulder_left": shoulder_angle(kps, "left", min_conf),
+        "shoulder_right": shoulder_angle(kps, "right", min_conf),
         "torso_vertical": torso_vertical_angle(kps, min_conf),
         "knee_over_toe_left": knee_over_toe_offset(kps, "left", min_conf),
         "knee_over_toe_right": knee_over_toe_offset(kps, "right", min_conf),

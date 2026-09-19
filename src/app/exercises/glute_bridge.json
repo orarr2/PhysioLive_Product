@@ -1,0 +1,36 @@
+{
+  "id": "glute_bridge",
+  "name": "Glute Bridge",
+  "pose_backend": "mediapipe_holistic",
+  "camera_view": "side",
+  "rep_goal": 12,
+  "rep_definition": {
+    "primary_angle": "hip_left",
+    "secondary_angle": "hip_right",
+    "standing_deg": 165,
+    "bottom_deg": 110,
+    "hysteresis_deg": 6,
+    "confirm_frames": 2
+  },
+  "rules": [
+    {
+      "id": "shallow_bridge",
+      "level": "warn",
+      "message": "Hip lift is shallow. Drive the hips higher until the thigh lines up with the torso.",
+      "condition": {
+        "kind": "hip_extension_below",
+        "target_deg": 160
+      }
+    },
+    {
+      "id": "over_arch",
+      "level": "warn",
+      "message": "Do not over-arch the lower back. Squeeze the glutes and keep the ribs stacked.",
+      "condition": {
+        "kind": "hip_extension_above",
+        "target_deg": 185
+      }
+    }
+  ],
+  "reference_signature_ids": []
+}

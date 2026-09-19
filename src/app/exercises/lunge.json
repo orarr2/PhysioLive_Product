@@ -1,0 +1,46 @@
+{
+  "id": "lunge",
+  "name": "Forward Lunge",
+  "pose_backend": "mediapipe_holistic",
+  "camera_view": "side",
+  "rep_goal": 10,
+  "rep_definition": {
+    "primary_angle": "knee_left",
+    "secondary_angle": "knee_right",
+    "standing_deg": 170,
+    "bottom_deg": 95,
+    "hysteresis_deg": 8,
+    "confirm_frames": 2
+  },
+  "rules": [
+    {
+      "id": "shallow_depth",
+      "level": "warn",
+      "message": "Front knee did not reach 90 degrees. Sink deeper if the range is comfortable.",
+      "condition": {
+        "kind": "rom_below",
+        "metric": "knee_min_deg",
+        "target_max_deg": 100
+      }
+    },
+    {
+      "id": "knee_over_toe",
+      "level": "warn",
+      "message": "Front knee is drifting past the toe. Sit back into the hips.",
+      "condition": {
+        "kind": "knee_over_toe_side",
+        "threshold_norm": 0.40
+      }
+    },
+    {
+      "id": "torso_lean",
+      "level": "warn",
+      "message": "Torso leaning forward. Keep the chest tall and hinge at the hip, not the low back.",
+      "condition": {
+        "kind": "torso_vertical_gt",
+        "threshold_deg": 35
+      }
+    }
+  ],
+  "reference_signature_ids": []
+}
