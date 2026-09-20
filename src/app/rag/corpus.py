@@ -26,7 +26,16 @@ from pathlib import Path
 from typing import Iterable, Iterator, List, Optional
 
 
-SEED_DIR = Path(__file__).resolve().parents[3] / "data" / "corpus_seed"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+# Canonical location for the hand-authored seed corpus. `corpus/` is
+# organised ArchiveX-style (one subfolder per topic, one chunks.json
+# per subfolder) and is what the coach cites from at runtime.
+CORPUS_DIR = _REPO_ROOT / "corpus"
+# Legacy path kept working so older VM checkouts keep booting. New
+# chunks always land under `corpus/`.
+LEGACY_SEED_DIR = _REPO_ROOT / "data" / "corpus_seed"
+# Backwards-compat alias for callers that import `SEED_DIR` directly.
+SEED_DIR = CORPUS_DIR
 
 
 def _hash_id(*parts: str) -> str:
@@ -56,13 +65,35 @@ def chunk_text(text: str, chunk_size: int = 512,
 
 
 class SeedCorpus:
-    def __init__(self, path: Optional[Path] = None) -> None:
-        self.path = Path(path or SEED_DIR)
+    """Iterate chunks from the on-disk corpus.
+
+    Reads every `chunks.json` under `corpus/` (recursively, one per
+    topic), plus any legacy `data/corpus_seed/*.json` files still on
+    disk. Duplicate ids are deduplicated on first-seen. Chunks marked
+    with `deprecated: true` are skipped so retired evidence stops being
+    retrieved without breaking historical id references in session
+    logs.
+    """
+
+    def __init__(self, path: Optional[Path] = None,
+                 include_legacy: bool = True) -> None:
+        self.path = Path(path or CORPUS_DIR)
+        self.include_legacy = include_legacy
+
+    def _iter_files(self) -> Iterator[Path]:
+        # Primary: topic-per-folder ArchiveX-style corpus.
+        if self.path.is_dir():
+            for p in sorted(self.path.rglob("chunks.json")):
+                yield p
+        # Legacy: flat JSON files under data/corpus_seed. Kept for old
+        # VM checkouts that have not pulled the restructured layout yet.
+        if self.include_legacy and LEGACY_SEED_DIR.is_dir():
+            for p in sorted(LEGACY_SEED_DIR.glob("*.json")):
+                yield p
 
     def iter_chunks(self) -> Iterator[dict]:
-        if not self.path.is_dir():
-            return
-        for p in sorted(self.path.glob("*.json")):
+        seen_ids = set()
+        for p in self._iter_files():
             try:
                 payload = json.loads(p.read_text(encoding="utf-8"))
             except (OSError, ValueError):
@@ -70,11 +101,17 @@ class SeedCorpus:
             if not isinstance(payload, list):
                 continue
             for item in payload:
+                if item.get("deprecated"):
+                    continue
                 text = (item.get("text") or "").strip()
                 if not text:
                     continue
+                cid = item.get("id") or _hash_id(p.name, text[:80])
+                if cid in seen_ids:
+                    continue
+                seen_ids.add(cid)
                 yield {
-                    "id": item.get("id") or _hash_id(p.name, text[:80]),
+                    "id": cid,
                     "text": text,
                     "title": item.get("title", ""),
                     "section": item.get("section", ""),

@@ -1,0 +1,46 @@
+[
+  {
+    "id": "general-two-tick-01",
+    "title": "Why rep counting requires confirmation",
+    "section": "measurement",
+    "text": "Instantaneous single-frame joint angles are noisy, so a rep counter should require the target angle to be held for at least two consecutive frames before switching state. This two-tick confirmation prevents a flicker between standing and bottom positions from producing a phantom rep, especially when the pose estimator briefly loses a joint.",
+    "source_url": "internal",
+    "license": "Notes",
+    "evidence_level": "design-note",
+    "tags": ["measurement", "rep-counter"],
+    "body_part": "any"
+  },
+  {
+    "id": "general-camera-01",
+    "title": "Camera view for squat analysis",
+    "section": "setup",
+    "text": "A front-view camera is well suited for detecting dynamic knee valgus and hip drop during a squat, while a side-view camera is required to measure knee-over-toe translation and torso lean. If only one camera is available, a 45-degree oblique view compromises between the two.",
+    "source_url": "internal",
+    "license": "Notes",
+    "evidence_level": "setup-note",
+    "tags": ["camera", "setup"],
+    "body_part": "any"
+  },
+  {
+    "id": "general-warmup-01",
+    "title": "Warm-up before rehabilitation exercise",
+    "section": "protocol",
+    "text": "A five-minute low-intensity warm-up (marching in place, gentle cycling, or air squats to a comfortable depth) raises tissue temperature and improves range of motion before loaded rehabilitation work. Static stretching before strength training is generally avoided because it briefly reduces force production.",
+    "source_url": "https://www.who.int/",
+    "license": "Public - WHO physical activity guidance",
+    "evidence_level": "guideline",
+    "tags": ["warmup", "protocol"],
+    "body_part": "any"
+  },
+  {
+    "id": "general-pain-01",
+    "title": "Pain during exercise",
+    "section": "safety",
+    "text": "Mild discomfort during rehabilitation exercise is usually acceptable, but sharp pain, giving-way, or swelling that persists more than two hours after a session are signs the load or range should be reduced. The patient should be advised to contact their physiotherapist rather than push through pain.",
+    "source_url": "https://www.who.int/",
+    "license": "Public - WHO guidance",
+    "evidence_level": "guideline",
+    "tags": ["safety", "pain"],
+    "body_part": "any"
+  }
+]

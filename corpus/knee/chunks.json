@@ -1,0 +1,35 @@
+[
+  {
+    "id": "knee-valgus-01",
+    "title": "Dynamic knee valgus",
+    "section": "form correction",
+    "text": "Dynamic knee valgus - the knee tracking medially during a squat, lunge, or landing - is a risk factor for anterior cruciate ligament injury and patellofemoral pain. Cueing 'knees out over the second toe' and strengthening the gluteus medius reduces valgus collapse. Rehabilitation programmes often include monster walks, clamshells, and single-leg squats to progress control.",
+    "source_url": "https://www.ncbi.nlm.nih.gov/pmc/",
+    "license": "Public domain - NIH / PMC",
+    "evidence_level": "review",
+    "tags": ["knee", "valgus", "injury-prevention"],
+    "body_part": "knee"
+  },
+  {
+    "id": "knee-rom-01",
+    "title": "Range of motion utilisation",
+    "section": "concepts",
+    "text": "Range of motion utilisation is the ratio between the range a patient reached during a rep and their available range of motion. Consistent under-utilisation (for example only using 60 percent of the available range) can slow strength adaptation. Progression targets are individualised to the patient's tolerance and stage of rehabilitation.",
+    "source_url": "https://www.pedro.org.au/",
+    "license": "Metadata only - PEDro",
+    "evidence_level": "definition",
+    "tags": ["ROM", "concepts"],
+    "body_part": "knee"
+  },
+  {
+    "id": "knee-symmetry-01",
+    "title": "Symmetry index between limbs",
+    "section": "concepts",
+    "text": "The symmetry index compares the same variable (for example knee flexion range or eccentric time) between the two limbs. In late-stage rehabilitation a symmetry index within about 10 percent is often used as a return-to-activity criterion, though the exact threshold depends on the surgical procedure and the sport.",
+    "source_url": "https://www.jospt.org/",
+    "license": "Reference only - see JOSPT",
+    "evidence_level": "review",
+    "tags": ["symmetry", "return-to-play"],
+    "body_part": "knee"
+  }
+]

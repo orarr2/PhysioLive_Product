@@ -1,0 +1,35 @@
+[
+  {
+    "id": "hip-glute-medius-01",
+    "title": "Gluteus medius and knee tracking",
+    "section": "anatomy",
+    "text": "The gluteus medius is a hip abductor and external rotator. Weakness in this muscle is associated with dynamic knee valgus and iliotibial band syndrome. Exercises such as side-lying leg raises, clamshells, and single-leg squats are commonly used to strengthen it during lower-limb rehabilitation.",
+    "source_url": "https://www.ncbi.nlm.nih.gov/pmc/",
+    "license": "Public - NIH / PMC",
+    "evidence_level": "review",
+    "tags": ["anatomy", "hip", "knee"],
+    "body_part": "hip"
+  },
+  {
+    "id": "hip-bridge-01",
+    "title": "Glute bridge and hip extension",
+    "section": "hip technique",
+    "text": "The glute bridge cues terminal hip extension with a neutral pelvis. The patient lifts the hips until the trunk and thighs form a straight line; overshooting into lumbar hyperextension shifts load to the low back. A brief squeeze at the top and a controlled lower reinforces gluteal recruitment without stressing the spine.",
+    "source_url": "https://www.jospt.org/",
+    "license": "Reference only - see JOSPT",
+    "evidence_level": "review",
+    "tags": ["glute-bridge", "hip", "lumbar"],
+    "body_part": "hip"
+  },
+  {
+    "id": "hip-leg-raise-01",
+    "title": "Straight leg raise and quadriceps set",
+    "section": "hip technique",
+    "text": "The straight leg raise is a low-load exercise used early after knee surgery. The patient locks the knee, sets the quadriceps, and lifts the leg to about 30 to 45 degrees of hip flexion, then lowers under control. A lag between the quadriceps set and the leg lift is a common sign of extensor mechanism weakness and cues additional isometric work.",
+    "source_url": "https://www.ncbi.nlm.nih.gov/pmc/",
+    "license": "Public - NIH / PMC",
+    "evidence_level": "review",
+    "tags": ["leg-raise", "hip", "quadriceps"],
+    "body_part": "hip"
+  }
+]
