@@ -8,7 +8,7 @@ export const CONFIG = {
   // Currently a Cloudflare TryCloudflare URL - it will change every
   // time the tunnel restarts. When the operator moves to a named
   // tunnel with a stable hostname, replace this value.
-  vmOrigin: "https://butter-several-publisher-lance.trycloudflare.com",
+  vmOrigin: "https://experienced-read-liked-magnitude.trycloudflare.com",
 
   // Google Sign-In client id. Create one at
   // https://console.cloud.google.com/apis/credentials
