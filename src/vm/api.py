@@ -1,16 +1,22 @@
 """PhysioLive VM API.
 
-FastAPI service that hosts the retrieval store and the coach LLM.
-Runs behind a Cloudflare Tunnel with Bearer-token auth. Every write
-endpoint requires the `PHYSIOLIVE_API_TOKEN` header; the health probe
-does not.
+FastAPI service that hosts the retrieval store, the coach LLM and the
+sign-in flow. Runs behind a Cloudflare Tunnel with JWT auth on every
+data endpoint.
 
-Endpoints:
-    GET  /health              service status + evidence count
-    POST /rag/query           retrieval only
-    POST /coach/feedback      retrieval + LLM composition
+Endpoints
+    GET  /health              service status + evidence count (public)
+    POST /auth/login          passphrase -> JWT
+    POST /auth/google         Google ID token -> JWT
+    POST /rag/query           retrieval (JWT required)
+    POST /coach/feedback      retrieval + LLM composition (JWT required)
 
 Boot: `uvicorn vm.api:app --host 127.0.0.1 --port 8000`
+
+Rate limits
+    Per-IP:   30 requests / minute,   500 requests / day (all routes)
+    Per-user: 20 requests / minute,   300 requests / day (data routes)
+    All limits documented in `docs/rate-limits.md`.
 """
 from __future__ import annotations
 
@@ -25,20 +31,67 @@ _SRC = Path(__file__).resolve().parent.parent
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from fastapi import Depends, FastAPI, Header, HTTPException            # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware                      # noqa: E402
-from pydantic import BaseModel, Field                                   # noqa: E402
+from fastapi import Depends, FastAPI, HTTPException, Request               # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware                          # noqa: E402
+from pydantic import BaseModel, Field                                       # noqa: E402
+from slowapi import Limiter                                                 # noqa: E402
+from slowapi.errors import RateLimitExceeded                                # noqa: E402
+from slowapi.util import get_remote_address                                 # noqa: E402
+from starlette.responses import JSONResponse                                # noqa: E402
 
-from app.rag import RAGService                                          # noqa: E402
-from vm.coach_llm import call_llm                                       # noqa: E402
+from app.rag import RAGService                                              # noqa: E402
+from vm.auth import (                                                        # noqa: E402
+    require_auth, issue_passphrase_token, issue_google_token,
+)
+from vm.coach_llm import call_llm                                            # noqa: E402
 
 
-app = FastAPI(title="PhysioLive VM", version="1.0.0")
+# ------------------------------------------------------------------ rate limits
+
+def _rate_key(request: Request) -> str:
+    """Prefer the JWT subject as the rate-limit key when the request
+    is authenticated - so one user across many IPs still counts as one
+    quota, and one shared IP with many users does not stall out the
+    coach for everyone."""
+    auth = request.headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        # Cheap parse: use the token itself as an opaque identifier
+        # per request. The heavier JWT decode still happens inside
+        # `require_auth`. Using the raw bearer means an attacker
+        # spraying random tokens does not share the same bucket as a
+        # legitimate user.
+        return "u:" + auth[7:200]
+    return "ip:" + get_remote_address(request)
+
+
+limiter = Limiter(
+    key_func=_rate_key,
+    default_limits=[
+        os.environ.get("PHYSIOLIVE_LIMIT_PER_MIN", "30/minute"),
+        os.environ.get("PHYSIOLIVE_LIMIT_PER_DAY", "500/day"),
+    ],
+)
+
+
+# ------------------------------------------------------------------ app
+
+app = FastAPI(title="PhysioLive VM", version="1.1.0")
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def _rate_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "rate limit exceeded", "limit": str(exc.detail)},
+        headers={"Retry-After": "60"},
+    )
+
 
 # The web app runs from GitHub Pages (orarr2.github.io) and the notebook
 # runs from a local host, both of which are cross-origin relative to the
 # tunnel URL. Allow all origins so any client can reach the service; the
-# Bearer-token check further down still gates real access.
+# JWT check further down still gates real access.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -50,6 +103,8 @@ app.add_middleware(
 
 _rag = RAGService()
 
+
+# ------------------------------------------------------------------ models
 
 class RAGQueryRequest(BaseModel):
     query: str = Field(min_length=1, max_length=1000)
@@ -88,20 +143,26 @@ class CoachFeedbackResponse(BaseModel):
     took_ms: int
 
 
-def _check_auth(authorization: Optional[str] = Header(None)) -> None:
-    expected = os.environ.get("PHYSIOLIVE_API_TOKEN")
-    if not expected:
-        # Auth disabled - useful for local development. Log the fact so
-        # the operator knows they are running open.
-        return
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="missing bearer token")
-    if authorization[7:].strip() != expected:
-        raise HTTPException(status_code=401, detail="invalid bearer token")
+class LoginRequest(BaseModel):
+    passphrase: str = Field(min_length=1, max_length=200)
+    display_name: str = Field(default="", max_length=40)
 
+
+class GoogleLoginRequest(BaseModel):
+    id_token: str = Field(min_length=10, max_length=4096)
+
+
+class AuthResponse(BaseModel):
+    jwt: str
+    exp: int
+    profile: Dict
+
+
+# ------------------------------------------------------------------ routes
 
 @app.get("/health")
-def health() -> Dict:
+@limiter.limit("60/minute")
+def health(request: Request) -> Dict:
     try:
         count = _rag.store.count_evidence()
     except Exception:
@@ -113,12 +174,28 @@ def health() -> Dict:
         "coach_provider": os.environ.get("COACH_PROVIDER", "groq"),
         "coach_model": os.environ.get("GROQ_MODEL",
                                       "openai/gpt-oss-20b"),
+        "version": app.version,
     }
 
 
+@app.post("/auth/login", response_model=AuthResponse)
+@limiter.limit("10/minute")
+def auth_login(request: Request, body: LoginRequest) -> AuthResponse:
+    result = issue_passphrase_token(body.passphrase, body.display_name)
+    return AuthResponse(**result)
+
+
+@app.post("/auth/google", response_model=AuthResponse)
+@limiter.limit("10/minute")
+def auth_google(request: Request, body: GoogleLoginRequest) -> AuthResponse:
+    result = issue_google_token(body.id_token)
+    return AuthResponse(**result)
+
+
 @app.post("/rag/query", response_model=RAGQueryResponse)
-def rag_query(body: RAGQueryRequest,
-              _auth: None = Depends(_check_auth)) -> RAGQueryResponse:
+@limiter.limit(os.environ.get("PHYSIOLIVE_USER_LIMIT", "20/minute"))
+def rag_query(request: Request, body: RAGQueryRequest,
+              user: Dict = Depends(require_auth)) -> RAGQueryResponse:
     t0 = time.perf_counter()
     chunks = _rag.search(body.query, k=body.top_k, where=body.filters)
     took_ms = int((time.perf_counter() - t0) * 1000)
@@ -133,8 +210,9 @@ def rag_query(body: RAGQueryRequest,
 
 
 @app.post("/coach/feedback", response_model=CoachFeedbackResponse)
-def coach_feedback(body: CoachFeedbackRequest,
-                   _auth: None = Depends(_check_auth)
+@limiter.limit(os.environ.get("PHYSIOLIVE_USER_LIMIT", "20/minute"))
+def coach_feedback(request: Request, body: CoachFeedbackRequest,
+                   user: Dict = Depends(require_auth)
                    ) -> CoachFeedbackResponse:
     t0 = time.perf_counter()
     chunks = _rag.search_for_verdict(
@@ -158,7 +236,8 @@ def coach_feedback(body: CoachFeedbackRequest,
     except Exception as e:
         # LLM failed. Fall back to the rule message rather than 500 the
         # caller - the live loop must keep moving.
-        print(f"coach LLM error: {type(e).__name__}: {e}")
+        print(f"coach LLM error for user {user.get('sub')}: "
+              f"{type(e).__name__}: {e}")
 
     source_url = chunks[0].source_url if chunks else None
     took_ms = int((time.perf_counter() - t0) * 1000)

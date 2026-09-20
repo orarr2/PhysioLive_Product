@@ -13,7 +13,10 @@ keeps moving.
 Environment:
     PHYSIOLIVE_VM_URL       origin of the coach service, e.g.
                             https://physiolive.example.com
-    PHYSIOLIVE_API_TOKEN    Bearer token expected by the VM
+    PHYSIOLIVE_JWT          signed JWT returned by /auth/login. When
+                            unset the client also accepts the legacy
+                            PHYSIOLIVE_API_TOKEN for older notebook
+                            checkouts.
 """
 from __future__ import annotations
 
@@ -47,7 +50,10 @@ class CoachAgent:
                  timeout_s: float = 3.5) -> None:
         self.vm_url = (vm_url or os.environ.get("PHYSIOLIVE_VM_URL")
                        or "").rstrip("/")
+        # Prefer a signed JWT; fall back to the legacy shared token
+        # for notebook installs that have not migrated.
         self.api_token = (api_token
+                          or os.environ.get("PHYSIOLIVE_JWT")
                           or os.environ.get("PHYSIOLIVE_API_TOKEN") or "")
         # Retained for backward-compat with old notebook check.
         self.api_key = self.api_token

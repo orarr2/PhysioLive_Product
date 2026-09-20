@@ -17,3 +17,10 @@ anthropic>=0.34
 # HTTP client for outbound calls
 requests>=2.31
 httpx>=0.27
+
+# Auth: signed JWTs for sessions, bcrypt-hashed passphrase check.
+PyJWT>=2.8
+bcrypt>=4.1
+
+# Per-IP and per-user rate limits.
+slowapi>=0.1.9

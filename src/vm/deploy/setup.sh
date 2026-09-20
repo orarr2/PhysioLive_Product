@@ -13,7 +13,7 @@
 #   8. Configures a basic ufw firewall (SSH-only inbound).
 #
 # After this script finishes, edit /etc/physiolive/env with your real
-# GROQ_API_KEY and PHYSIOLIVE_API_TOKEN, then:
+# GROQ_API_KEY and PHYSIOLIVE_PASSPHRASE, then:
 #   sudo systemctl start physiolive
 #   curl http://127.0.0.1:8000/health
 
@@ -58,23 +58,54 @@ sudo -u physiolive "${VENV_DIR}/bin/pip" install -r "${REPO_DIR}/src/vm/requirem
 
 echo "=== 5. env placeholders ==="
 if [ ! -f "${ENV_FILE}" ]; then
-    cat > "${ENV_FILE}" <<'EOF'
+    # Generate a fresh JWT signing key so tokens survive service restarts.
+    JWT_SECRET_HEX="$(openssl rand -hex 48 2>/dev/null || python3 -c 'import secrets;print(secrets.token_hex(48))')"
+    cat > "${ENV_FILE}" <<EOF
 # PhysioLive VM environment. Edit before starting the service.
+#
+# --- Coach LLM ------------------------------------------------------
 # GROQ_MODEL: query https://api.groq.com/openai/v1/models with your key
-# to see what your account can run today (Groq's catalog changes over time).
-# openai/gpt-oss-20b is a safe generalist default across free-tier keys.
+# to see what your account can run today. openai/gpt-oss-120b is the
+# best-quality free-tier default; openai/gpt-oss-20b is faster.
 COACH_PROVIDER=groq
 GROQ_API_KEY=CHANGE_ME
-GROQ_MODEL=openai/gpt-oss-20b
-PHYSIOLIVE_API_TOKEN=CHANGE_ME
+GROQ_MODEL=openai/gpt-oss-120b
+
+# --- Auth: passphrase route ----------------------------------------
+# The web app's sign-in modal accepts this passphrase. Preferred:
+# supply a bcrypt hash (starts with \$2b\$). If only the plain form is
+# set the service uses it directly (fine for the first-boot smoke
+# test; replace with the hash before opening the tunnel to the world).
+# Generate a hash: python3 -c 'import bcrypt,sys;print(bcrypt.hashpw(sys.argv[1].encode(),bcrypt.gensalt()).decode())' 'your-passphrase'
+PHYSIOLIVE_PASSPHRASE=CHANGE_ME_TO_A_LONG_PHRASE
+# PHYSIOLIVE_PASSPHRASE_HASH=\$2b\$12\$...
+
+# --- Auth: Google Sign-In route ------------------------------------
+# Comma-separated list of emails allowed to sign in via Google.
+# Leaving this empty disables the whitelist and rejects every Google
+# sign-in. Set GOOGLE_OAUTH_CLIENT_ID to the same client id used in
+# webapp/assets/config.js so ID tokens are validated against your app.
+PHYSIOLIVE_ALLOWED_EMAILS=orarbeli1@gmail.com
+# GOOGLE_OAUTH_CLIENT_ID=1234567890-abc.apps.googleusercontent.com
+
+# --- Auth: JWT signing key -----------------------------------------
+# Rotating this invalidates every issued token. If unset the service
+# falls back to /var/lib/physiolive/jwt.secret (auto-generated).
+PHYSIOLIVE_JWT_SECRET=${JWT_SECRET_HEX}
+PHYSIOLIVE_JWT_TTL=604800
+
+# --- Rate limits (documented in docs/rate-limits.md) ---------------
+PHYSIOLIVE_LIMIT_PER_MIN=30/minute
+PHYSIOLIVE_LIMIT_PER_DAY=500/day
+PHYSIOLIVE_USER_LIMIT=20/minute
 EOF
     chmod 600 "${ENV_FILE}"
     chown root:root "${ENV_FILE}"
-    echo "wrote ${ENV_FILE} - edit it and set the real values"
+    echo "wrote ${ENV_FILE} - edit GROQ_API_KEY and PHYSIOLIVE_PASSPHRASE"
 fi
 
-echo "=== 6. build ChromaDB from seed corpus ==="
-if [ -f "${REPO_DIR}/data/corpus_seed/physio_fundamentals.json" ]; then
+echo "=== 6. build ChromaDB from the corpus ==="
+if [ -d "${REPO_DIR}/corpus" ] || [ -f "${REPO_DIR}/data/corpus_seed/physio_fundamentals.json" ]; then
     sudo -u physiolive bash -c "cd ${REPO_DIR}/src && PYTHONPATH=${REPO_DIR}/src ${VENV_DIR}/bin/python -m app.tools.build_index" || \
         echo "corpus build failed - you can rerun it later"
 fi
@@ -96,8 +127,12 @@ echo "=========================================="
 echo "PhysioLive VM setup complete."
 echo
 echo "Next steps:"
-echo "  1. Edit ${ENV_FILE} with your GROQ_API_KEY and PHYSIOLIVE_API_TOKEN."
-echo "  2. sudo systemctl start physiolive"
-echo "  3. curl http://127.0.0.1:8000/health"
-echo "  4. Follow src/vm/deploy/cloudflared.md to expose the service."
+echo "  1. Edit ${ENV_FILE} - at minimum set GROQ_API_KEY and PHYSIOLIVE_PASSPHRASE."
+echo "  2. (Optional) Fill GOOGLE_OAUTH_CLIENT_ID and PHYSIOLIVE_ALLOWED_EMAILS"
+echo "     if you want Google Sign-In as well as the passphrase route."
+echo "  3. sudo systemctl start physiolive"
+echo "  4. curl http://127.0.0.1:8000/health"
+echo "  5. Follow src/vm/deploy/cloudflared.md to expose the service."
+echo "  6. To auto-publish the current tunnel URL to the web app, follow"
+echo "     src/vm/deploy/tunnel-publisher.md and install the systemd path."
 echo "=========================================="

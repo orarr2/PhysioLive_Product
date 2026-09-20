@@ -1,9 +1,11 @@
 # PhysioLive Web
 
-A browser build of PhysioLive. Runs entirely client-side: the camera
-feed and the pose estimation stay on the user's device, and the app
-only reaches out to the PhysioLive VM when it needs a citation-grounded
-coach message.
+Browser build of PhysioLive. Runs entirely client-side: the camera feed
+and the MediaPipe Pose stay on the user's device, and the app only
+reaches out to the PhysioLive VM for citation-grounded coach messages.
+Access is JWT-gated - either Google Sign-In or an invite passphrase.
+
+Live: https://orarr2.github.io/PhysioLive_Product/
 
 ## Local preview
 
@@ -11,69 +13,109 @@ coach message.
 python -m http.server 8080 --directory webapp
 ```
 
-Open `http://localhost:8080` in Chrome or Safari. Allow camera access
-when prompted. To test camera access from a phone on the same network,
-use `python -m http.server 8080 --directory webapp --bind 0.0.0.0` and
-open `http://<your-laptop-ip>:8080`.
+Open `http://localhost:8080` in Chrome or Safari. Modern browsers
+require a secure origin (`https://` or `localhost`) for
+`getUserMedia`; on GitHub Pages this is automatic.
 
-> Modern browsers require a secure origin (`https://` or `localhost`)
-> for `getUserMedia`. On GitHub Pages this is automatic. When testing
-> from a phone via LAN, add a self-signed HTTPS proxy such as
-> [`mkcert`](https://github.com/FiloSottile/mkcert) + `caddy`.
+To test camera access from a phone on the same LAN, bind to `0.0.0.0`
+and add a self-signed HTTPS proxy such as
+[`mkcert`](https://github.com/FiloSottile/mkcert) + `caddy`:
+
+```
+python -m http.server 8080 --directory webapp --bind 0.0.0.0
+```
 
 ## Deploying to GitHub Pages
 
-1. Push to `main` on `github.com/orarr2/PhysioLive_Product`.
-2. In the repo settings under **Pages**, set the source to
-   `Branch: main` / `Folder: /webapp`.
-3. Wait one minute; the app publishes at
-   `https://orarr2.github.io/PhysioLive_Product/`.
+`.github/workflows/pages.yml` runs on every push to `main` that
+touches `webapp/`. In the repo settings under **Pages**, set the source
+to `GitHub Actions`.
 
 ## Configuration
 
-Edit `assets/config.js` after the VM comes online:
+Two files feed the runtime:
 
 ```js
+// webapp/assets/config.js  (hardcoded fallback, checked into git)
 export const CONFIG = {
-  vmOrigin: "https://physiolive.example.com",
-  googleClientId: "1234567890-abc.apps.googleusercontent.com",
+  vmOrigin: "https://<fallback>.trycloudflare.com",
+  googleClientId: null,           // paste your Google OAuth client id
+  tunnelJsonTimeoutMs: 1500,
 };
 ```
 
-- `vmOrigin`: the origin of the PhysioLive coach + RAG service. When
-  left `null`, the web app falls back to rule-only feedback.
-- `googleClientId`: OAuth client id for Sign in with Google. Create one
-  under [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
+```json
+// webapp/tunnel-url.json  (auto-updated by the VM's publisher unit)
+{
+  "origin": "https://<current>.trycloudflare.com",
+  "published_at": "2026-01-15T09:32:12Z",
+  "source": "cloudflared-quick-tunnel"
+}
+```
+
+The app fetches `tunnel-url.json` at boot and prefers its `origin`;
+`CONFIG.vmOrigin` is used only when the JSON is absent or stale. See
+`src/vm/deploy/tunnel-publisher.md` for the publisher setup.
+
+## Sign-in gate
+
+The sign-in modal is required - no guest mode. Two paths:
+
+- **Google Sign-In** (visible when `CONFIG.googleClientId` is set):
+  the browser gets an ID token, the app posts it to `/auth/google`,
+  the VM verifies against Google's tokeninfo endpoint and against the
+  `PHYSIOLIVE_ALLOWED_EMAILS` list, and returns a signed JWT.
+- **Passphrase** (always visible): the user pastes a shared invite
+  passphrase; the VM validates it against `PHYSIOLIVE_PASSPHRASE_HASH`
+  and returns the same shape of JWT.
+
+Every subsequent `/rag/query` and `/coach/feedback` call sends the
+JWT as a Bearer header. The JWT expires after 7 days by default (see
+`PHYSIOLIVE_JWT_TTL`).
+
+## Camera picker
+
+`webapp/assets/app.js` calls `enumerateDevices()` after the first
+successful `getUserMedia` grant and populates a dropdown in the top
+of the live stage. The choice is stored in `localStorage` under
+`physiolive.camera_device_id` and reused on the next session.
+
+The front camera is mirrored automatically via `transform: scaleX(-1)`
+on both the video and the overlay canvas, so "move phone right"
+matches "the frame moves right". The rear camera stays unmirrored.
 
 ## Layout
 
 ```
 webapp/
-  index.html           entry point
-  README.md            this file
+  index.html                 entry point
+  README.md                  this file
+  tunnel-url.json            current tunnel origin (auto-updated)
   assets/
-    app.js             wiring
-    pose.js            MediaPipe Tasks Vision (PoseLandmarker)
-    angles.js          joint-angle math
-    rep_counter.js     state machine + confirmation
-    rules.js           form-check rules (mirror of Python)
-    exercises.js       per-exercise config (mirror of Python JSONs)
-    coach_client.js    HTTPS client for the VM coach endpoint
-    session.js         client-side session log (localStorage)
-    auth.js            Google Identity Services + anon UUID
-    config.js          runtime configuration
-    style.css          UI styling
+    app.js                   wiring (views, camera, sign-in, TTS queue)
+    pose.js                  MediaPipe Tasks Vision (PoseLandmarker)
+    angles.js                joint-angle math
+    rep_counter.js           state machine + two-tick confirmation
+    rules.js                 form-check rules (mirror of Python)
+    exercises.js             per-exercise config
+    coach_client.js          HTTPS client for /coach/feedback
+    session.js               client-side session log (localStorage)
+    auth.js                  Google Identity Services + passphrase + JWT
+    config.js                runtime configuration + tunnel-url resolver
+    style.css                UI styling
 ```
 
 ## What it does not do yet
 
-- **Cross-device history sync**: the client writes to localStorage and
-  keeps every session per user id. Sync to the VM happens when the VM
-  is online and the user is signed in.
-- **PDF export**: the desktop notebook exports a one-page PDF per
+- **Cross-device history sync.** Sessions live in localStorage. Sync
+  to the VM is planned once the auth flow settles in practice.
+- **PDF export.** The desktop notebook exports a one-page PDF per
   session; the web app currently does not.
-- **Push notifications for missed sessions**: planned once the VM is
-  online.
+- **Named tunnel.** The tunnel URL is a TryCloudflare hostname that
+  changes on every restart. The VM's publisher unit patches the web
+  app config automatically so the site follows it, but latency is 60
+  to 90 seconds on each cutover. Move to a named tunnel with a stable
+  hostname if that gap becomes a problem.
 
 ## License
 

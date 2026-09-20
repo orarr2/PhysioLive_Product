@@ -1,9 +1,13 @@
 /**
  * PhysioLive web app - entry point.
+ *
  * Three view states (data-view on <body>):
  *   - landing:  exercise picker + hero
  *   - live:     camera + skeleton + HUD + feedback
  *   - summary:  end-of-session stats + rep table
+ *
+ * Access is gated by a sign-in modal (Google or passphrase). Only
+ * signed-in users get a camera stream or reach the VM.
  */
 
 import { EXERCISES } from "./exercises.js";
@@ -12,11 +16,13 @@ import { allAngles } from "./angles.js";
 import { RepCounter } from "./rep_counter.js";
 import { evaluate } from "./rules.js";
 import { requestCoach } from "./coach_client.js";
+import { resolveVmOrigin, CONFIG } from "./config.js";
 import {
-  currentUserId, promptSignIn, getSavedProfile, getOrCreateAnonId, signOut,
+  currentUserId, getSavedProfile, isSignedIn, signOut,
+  signInWithPassphrase, renderGoogleButton,
 } from "./auth.js";
 import {
-  openSession, appendRep, closeSession, pastSessions, currentSession,
+  openSession, appendRep, closeSession, pastSessions,
 } from "./session.js";
 
 // ============================================================ STATE
@@ -36,31 +42,35 @@ const state = {
   startedAt: 0,
   timerHandle: null,
   lastCoachTs: 0,
+  cameras: [],
+  activeCameraId: null,
+  activeFacing: "user",
 };
 
 // Meta / icons for the exercise cards.
 const EX_META = {
-  squat:              { view: "Front camera",     goal: "12 reps",    icon: iconSquat() },
-  lunge:              { view: "Side camera",      goal: "10 reps",    icon: iconLunge() },
-  glute_bridge:       { view: "Side camera",      goal: "12 reps",    icon: iconBridge() },
-  leg_raise:          { view: "Side camera",      goal: "12 reps",    icon: iconLeg() },
-  shoulder_abduction: { view: "Front camera",     goal: "15 reps",    icon: iconShoulder() },
+  squat:              { view: "Front camera", goal: "12 reps", icon: iconSquat() },
+  lunge:              { view: "Side camera",  goal: "10 reps", icon: iconLunge() },
+  glute_bridge:       { view: "Side camera",  goal: "12 reps", icon: iconBridge() },
+  leg_raise:          { view: "Side camera",  goal: "12 reps", icon: iconLeg() },
+  shoulder_abduction: { view: "Front camera", goal: "15 reps", icon: iconShoulder() },
 };
 
+const CAMERA_STORAGE_KEY = "physiolive.camera_device_id";
+
 // ============================================================ BOOT
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   wireLanding();
   wireLive();
   wireSummary();
   wireHistoryDrawer();
   wireSignIn();
-  const profile = getSavedProfile();
-  if (profile) {
-    document.getElementById("signin-label").textContent =
-      (profile.name || "You").split(" ")[0];
-  } else {
-    getOrCreateAnonId();
-  }
+  wireNavSignIn();
+
+  refreshSignInLabel();
+  // Fire and forget - the tunnel-url.json fetch is used by every
+  // request that follows, so we resolve it as soon as the DOM is up.
+  resolveVmOrigin().catch(() => { /* silent - fallback handles it */ });
 });
 
 // ============================================================ VIEW HELPERS
@@ -81,6 +91,16 @@ function toast(msg, ms = 2500) {
   toast._h = setTimeout(() => { t.hidden = true; }, ms);
 }
 
+function refreshSignInLabel() {
+  const label = document.getElementById("signin-label");
+  if (!label) return;
+  const profile = getSavedProfile();
+  label.textContent = profile
+    ? (profile.name || profile.display_name || profile.email || "You")
+        .split(" ")[0]
+    : "Sign in";
+}
+
 // ============================================================ LANDING
 function wireLanding() {
   const grid = document.getElementById("exercise-grid");
@@ -94,7 +114,7 @@ function wireLanding() {
       <div class="exercise-name">${ex.name}</div>
       <div class="exercise-meta">
         <span>${meta.view}</span>
-        <span>•</span>
+        <span>&middot;</span>
         <span>${meta.goal}</span>
       </div>
       <div class="exercise-cta">
@@ -117,9 +137,43 @@ function wireLive() {
   state.ctx = state.canvas.getContext("2d");
 
   document.getElementById("stop-btn").addEventListener("click", endSession);
+
+  // Track dimensions -> match container aspect-ratio to the video.
+  state.video.addEventListener("loadedmetadata", updateStageAspect);
+  state.video.addEventListener("resize", updateStageAspect);
+
+  // Camera picker.
+  const sel = document.getElementById("camera-select");
+  sel.addEventListener("change", async (e) => {
+    const id = e.target.value;
+    localStorage.setItem(CAMERA_STORAGE_KEY, id);
+    await switchCamera(id);
+  });
+}
+
+function updateStageAspect() {
+  const stage = document.querySelector(".live-stage");
+  const v = state.video;
+  if (!stage || !v || !v.videoWidth || !v.videoHeight) return;
+  const isPortraitMobile =
+    window.matchMedia("(max-width: 640px) and (orientation: portrait)").matches;
+  if (isPortraitMobile) {
+    // On portrait phones the CSS media query handles the height, so
+    // we skip the ratio override - it would fight the fixed height.
+    return;
+  }
+  stage.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`;
+}
+
+async function ensureAuthedOrPrompt() {
+  if (isSignedIn()) return true;
+  openSignInModal();
+  return false;
 }
 
 async function beginSession(exerciseId) {
+  if (!await ensureAuthedOrPrompt()) return;
+
   state.exerciseId = exerciseId;
   const ex = EXERCISES[exerciseId];
   if (!ex) return;
@@ -142,14 +196,10 @@ async function beginSession(exerciseId) {
 
   showLoading(true);
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "user" }, width: 1280, height: 720 },
-      audio: false,
-    });
-    state.stream = stream;
-    state.video.srcObject = stream;
-    await state.video.play();
+    const savedId = localStorage.getItem(CAMERA_STORAGE_KEY);
+    await openCameraStream(savedId);
     await ensurePose();
+    await refreshCameraList();
   } catch (e) {
     showLoading(false);
     setCoach(`Camera error: ${e.message || e}`, "bad", null);
@@ -161,7 +211,7 @@ async function beginSession(exerciseId) {
   state.reps = [];
   state.stats = { good: 0, warn: 0, bad: 0 };
   state.startedAt = Date.now();
-  const uid = currentUserId();
+  const uid = currentUserId() || "u_anon";
   state.sessionId = openSession(uid, exerciseId);
   state.running = true;
 
@@ -181,6 +231,83 @@ function showLoading(v) {
   document.getElementById("live-loading").hidden = !v;
 }
 
+// -------------------------------------------------------------- camera
+async function openCameraStream(preferredDeviceId) {
+  // Stop the previous track cleanly before opening a new one so the
+  // browser lets the same device be reused.
+  if (state.stream) {
+    state.stream.getTracks().forEach(t => t.stop());
+    state.stream = null;
+  }
+  const constraints = {
+    video: preferredDeviceId
+      ? {
+          deviceId: { exact: preferredDeviceId },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        }
+      : {
+          facingMode: { ideal: "user" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+    audio: false,
+  };
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  state.stream = stream;
+  state.video.srcObject = stream;
+  await state.video.play();
+  const track = stream.getVideoTracks()[0];
+  if (track) {
+    const settings = track.getSettings ? track.getSettings() : {};
+    state.activeCameraId = settings.deviceId || preferredDeviceId || null;
+    state.activeFacing = settings.facingMode || guessFacing(track.label);
+    document.querySelector(".live-stage")
+      .setAttribute("data-facing", state.activeFacing || "user");
+  }
+  updateStageAspect();
+}
+
+function guessFacing(label) {
+  const s = (label || "").toLowerCase();
+  if (s.includes("back") || s.includes("rear") || s.includes("environment")) {
+    return "environment";
+  }
+  return "user";
+}
+
+async function refreshCameraList() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d => d.kind === "videoinput");
+    state.cameras = cams;
+    const sel = document.getElementById("camera-select");
+    const wrap = document.getElementById("camera-select-wrap");
+    sel.innerHTML = "";
+    cams.forEach((cam, i) => {
+      const opt = document.createElement("option");
+      opt.value = cam.deviceId;
+      opt.textContent = cam.label || `Camera ${i + 1}`;
+      if (cam.deviceId === state.activeCameraId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    wrap.hidden = cams.length < 2;
+  } catch (e) {
+    console.warn("enumerateDevices failed", e);
+  }
+}
+
+async function switchCamera(deviceId) {
+  showLoading(true);
+  try {
+    await openCameraStream(deviceId);
+  } catch (e) {
+    setCoach(`Camera switch failed: ${e.message || e}`, "bad", null);
+  }
+  showLoading(false);
+}
+
+// -------------------------------------------------------------- loop
 async function loop() {
   if (!state.running) return;
   const ts = performance.now();
@@ -224,7 +351,7 @@ async function loop() {
       pushFeedback(verdict.text, verdict.level, null);
       speak(verdict.text);
 
-      const uid = currentUserId();
+      const uid = currentUserId() || "u_anon";
       appendRep(uid, state.sessionId, {
         index: event.index, level: verdict.level, text: verdict.text,
         primary_min: event.sample.getMin("primary"),
@@ -250,13 +377,28 @@ async function maybeAskCoach(ex, verdict, metrics, uid) {
       verdictText: verdict.text,
       metrics,
       userId: uid,
+      onPending: () => setCoachPending(true),
     });
+    setCoachPending(false);
+    if (resp && resp.authError) {
+      toast("Sign-in expired. Please sign in again.");
+      signOut();
+      refreshSignInLabel();
+      openSignInModal();
+      return;
+    }
+    if (resp && resp.rateLimited) {
+      toast("Coach rate limit hit - showing rule feedback only.");
+      return;
+    }
     if (resp && resp.text) {
       setCoach(resp.text, verdict.level, resp.sourceUrl);
       pushFeedback(resp.text, verdict.level, resp.sourceUrl);
       speak(resp.text);
     }
-  } catch (_) { /* silent - rule text already shown */ }
+  } catch (_) {
+    setCoachPending(false);
+  }
 }
 
 // ============================================================ HUD
@@ -280,6 +422,11 @@ function setCoach(text, level, sourceUrl) {
   } else {
     src.hidden = true;
   }
+}
+
+function setCoachPending(on) {
+  const pending = document.getElementById("coach-pending");
+  if (pending) pending.hidden = !on;
 }
 
 function updateMini({ good, warn, elapsed }) {
@@ -322,7 +469,7 @@ function endSession() {
     state.stream.getTracks().forEach(t => t.stop());
     state.stream = null;
   }
-  const uid = currentUserId();
+  const uid = currentUserId() || "u_anon";
   if (state.sessionId) closeSession(uid, state.sessionId);
 
   showSummary();
@@ -350,7 +497,6 @@ function showSummary() {
       ? "Try again when you are ready."
       : `${total} ${total === 1 ? "rep" : "reps"} of ${ex.name} in ${mm}:${ss}.`;
 
-  // Stat cards.
   const stats = document.getElementById("summary-stats");
   stats.innerHTML = "";
   addStat(stats, "Reps", total, "");
@@ -364,10 +510,8 @@ function showSummary() {
             Math.round(avg), "°");
   }
 
-  // Chart.
   drawSummaryChart(ex);
 
-  // Rep table.
   const tbody = document.getElementById("summary-rep-tbody");
   tbody.innerHTML = "";
   if (state.reps.length === 0) {
@@ -430,7 +574,6 @@ function drawSummaryChart(ex) {
   const cw = w - pad.l - pad.r;
   const ch = h - pad.t - pad.b;
 
-  // Grid + reference lines.
   ctx.strokeStyle = "rgba(255,255,255,0.06)";
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
@@ -440,7 +583,6 @@ function drawSummaryChart(ex) {
     ctx.lineTo(w - pad.r, y);
     ctx.stroke();
   }
-  // Target band around bottom_deg.
   const targetY = pad.t + ch * (1 - (ex.repDef.bottomDeg - vmin) / (vmax - vmin));
   ctx.strokeStyle = "rgba(52,211,153,0.5)";
   ctx.setLineDash([4, 4]);
@@ -454,7 +596,6 @@ function drawSummaryChart(ex) {
   ctx.textAlign = "left";
   ctx.fillText(`target ${ex.repDef.bottomDeg}°`, pad.l + 4, targetY - 4);
 
-  // Bars per rep.
   const bw = cw / reps.length;
   reps.forEach((r, i) => {
     const v = r.primaryMin || vmin;
@@ -473,7 +614,6 @@ function drawSummaryChart(ex) {
     ctx.globalAlpha = 1;
   });
 
-  // Axis labels.
   ctx.fillStyle = "#7c8698";
   ctx.font = "500 11px 'JetBrains Mono', monospace";
   ctx.textAlign = "right";
@@ -506,7 +646,7 @@ function wireSummary() {
 function wireHistoryDrawer() {
   const drawer = document.getElementById("history-drawer");
   document.getElementById("nav-history").addEventListener("click", () => {
-    const uid = currentUserId();
+    const uid = currentUserId() || "u_anon";
     const sessions = pastSessions(uid, 30);
     const list = document.getElementById("history-list");
     list.innerHTML = "";
@@ -543,50 +683,117 @@ function wireHistoryDrawer() {
 // ============================================================ SIGN IN
 function wireSignIn() {
   const modal = document.getElementById("signin-modal");
-  document.getElementById("nav-signin").addEventListener("click", async () => {
-    const profile = getSavedProfile();
-    if (profile) {
+  const form = document.getElementById("signin-form");
+  const backdrop = document.getElementById("signin-backdrop");
+  const errBox = document.getElementById("signin-error");
+  const nameInput = document.getElementById("signin-name");
+  const passInput = document.getElementById("signin-pass");
+  const submitBtn = document.getElementById("signin-submit");
+  const googleWrap = document.getElementById("signin-google");
+  const googleHolder = document.getElementById("google-signin-button");
+
+  // Only show the Google row when a client id is configured.
+  if (CONFIG.googleClientId) {
+    googleWrap.hidden = false;
+    renderGoogleButton(googleHolder).then((profile) => {
+      if (profile) {
+        modal.hidden = true;
+        refreshSignInLabel();
+        toast(`Signed in as ${profile.email || profile.name || "you"}`);
+      }
+    }).catch((e) => {
+      errBox.hidden = false;
+      errBox.textContent = String(e.message || e);
+    });
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errBox.hidden = true;
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = "0.7";
+    try {
+      const profile = await signInWithPassphrase(
+        passInput.value.trim(),
+        nameInput.value.trim(),
+      );
+      modal.hidden = true;
+      passInput.value = "";
+      refreshSignInLabel();
+      toast(`Welcome${profile && profile.display_name ? ", " + profile.display_name : ""}.`);
+    } catch (err) {
+      errBox.hidden = false;
+      errBox.textContent = String(err.message || err);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = "1";
+    }
+  });
+
+  // Backdrop no longer dismisses; the sign-in modal is required.
+  backdrop.addEventListener("click", (e) => e.stopPropagation());
+}
+
+function wireNavSignIn() {
+  document.getElementById("nav-signin").addEventListener("click", () => {
+    if (isSignedIn()) {
       signOut();
-      document.getElementById("signin-label").textContent = "Sign in";
+      refreshSignInLabel();
       toast("Signed out.");
       return;
     }
-    modal.hidden = false;
-    try {
-      const p = await promptSignIn(
-        document.getElementById("google-signin-button"));
-      if (p) {
-        document.getElementById("signin-label").textContent =
-          (p.name || "You").split(" ")[0];
-        toast(`Signed in as ${p.email || p.name}`);
-        modal.hidden = true;
-      }
-    } catch (e) { console.warn(e); }
+    openSignInModal();
   });
-  document.getElementById("signin-skip")
-    .addEventListener("click", () => { modal.hidden = true; });
-  document.getElementById("signin-backdrop")
-    .addEventListener("click", () => { modal.hidden = true; });
 }
 
-// ============================================================ SPEECH
+function openSignInModal() {
+  document.getElementById("signin-modal").hidden = false;
+  const passInput = document.getElementById("signin-pass");
+  if (passInput) setTimeout(() => passInput.focus(), 60);
+}
+
+// ============================================================ SPEECH (queued)
 const speech = window.speechSynthesis;
 let ttsVoice = null;
+const ttsQueue = [];
+let ttsSpeaking = false;
+
+function loadVoice() {
+  if (!speech) return null;
+  const voices = speech.getVoices();
+  ttsVoice = voices.find(v => v.lang && v.lang.startsWith("en")) || voices[0] || null;
+  return ttsVoice;
+}
+if (speech) speech.onvoiceschanged = () => { loadVoice(); };
+
 function speak(text) {
   if (!speech || !text) return;
+  ttsQueue.push(text);
+  if (ttsQueue.length > 3) {
+    // Drop the oldest so we do not lag many reps behind. Keep the two
+    // newest plus the one currently playing.
+    ttsQueue.splice(0, ttsQueue.length - 3);
+  }
+  drainTts();
+}
+
+function drainTts() {
+  if (ttsSpeaking) return;
+  const next = ttsQueue.shift();
+  if (!next) return;
   try {
-    if (!ttsVoice) {
-      const voices = speech.getVoices();
-      ttsVoice = voices.find(v => v.lang.startsWith("en")) || voices[0] || null;
-    }
-    const u = new SpeechSynthesisUtterance(text);
+    if (!ttsVoice) loadVoice();
+    const u = new SpeechSynthesisUtterance(next);
     if (ttsVoice) u.voice = ttsVoice;
     u.rate = 1.05;
-    speech.cancel();
+    u.onend = () => { ttsSpeaking = false; drainTts(); };
+    u.onerror = () => { ttsSpeaking = false; drainTts(); };
+    ttsSpeaking = true;
     speech.speak(u);
-  } catch (_) { /* silent */ }
+  } catch (_) {
+    ttsSpeaking = false;
+  }
 }
-if (speech) speech.onvoiceschanged = () => { ttsVoice = null; };
 
 // ============================================================ POSE / METRICS HELPERS
 function pickPrimary(angles, ex) {

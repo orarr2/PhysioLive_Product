@@ -17,5 +17,9 @@ MemoryMax=700M
 StandardOutput=journal
 StandardError=journal
 
+# Persist state (JWT signing key, future user tables) across reboots.
+ReadWritePaths=/var/lib/physiolive
+StateDirectory=physiolive
+
 [Install]
 WantedBy=multi-user.target

@@ -89,7 +89,7 @@ In the notebook environment (before starting the kernel):
 
 ```
 PHYSIOLIVE_VM_URL=https://physiolive.yourdomain.com
-PHYSIOLIVE_API_TOKEN=<your bearer token>
+PHYSIOLIVE_JWT=<paste the jwt returned by /auth/login>
 ```
 
 ## Alternative: TryCloudflare (throw-away URL)

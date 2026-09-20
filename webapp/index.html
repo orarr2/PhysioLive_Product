@@ -190,6 +190,11 @@
             <span id="live-fps">~15 fps</span>
           </div>
         </div>
+        <div class="live-camera-select" id="camera-select-wrap" hidden>
+          <label for="camera-select" class="sr-only">Camera</label>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <select id="camera-select" aria-label="Choose camera"></select>
+        </div>
       </div>
 
       <!-- Top-right: HUD -->
@@ -223,6 +228,11 @@
           <div class="coach-banner-body">
             <div class="coach-banner-text" id="coach-text">Tap start on any exercise to begin. Your camera never leaves this device.</div>
             <a class="coach-banner-source" id="coach-source" href="#" target="_blank" rel="noopener" hidden>view source</a>
+          </div>
+          <div class="coach-banner-pending" id="coach-pending" hidden aria-hidden="true">
+            <span class="coach-banner-dot"></span>
+            <span class="coach-banner-dot"></span>
+            <span class="coach-banner-dot"></span>
           </div>
         </div>
         <div class="live-mini">
@@ -313,11 +323,45 @@
 
   <!-- ========================= SIGN-IN MODAL ========================= -->
   <div class="modal" id="signin-modal" hidden>
-    <div class="modal-body">
-      <h2>Sign in</h2>
-      <p>Sign in with Google to sync sessions across devices. Skip to keep everything on this device only.</p>
-      <div id="google-signin-button" class="google-btn-holder"></div>
-      <button class="btn btn--ghost btn--sm" id="signin-skip">Continue as guest</button>
+    <div class="modal-body signin-modal-body">
+      <div class="signin-brand">
+        <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+          <circle cx="20" cy="20" r="18" stroke="url(#signinStroke)" stroke-width="2"/>
+          <path d="M13 22 L18 27 L28 15" stroke="url(#signinStroke)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="signinStroke" x1="0" y1="0" x2="40" y2="40">
+              <stop offset="0" stop-color="#7dd3fc"/>
+              <stop offset="0.5" stop-color="#a78bfa"/>
+              <stop offset="1" stop-color="#34d399"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <h2>Sign in to PhysioLive</h2>
+      </div>
+      <p class="signin-copy">This coach runs on a small server with a strict monthly budget, so access is invite-only. Sign in with Google (if your address is on the allow list) or paste your invite passphrase.</p>
+
+      <div class="signin-google" id="signin-google" hidden>
+        <div id="google-signin-button" class="google-btn-holder"></div>
+        <div class="signin-sep"><span>or</span></div>
+      </div>
+
+      <form class="signin-form" id="signin-form" autocomplete="off">
+        <label class="signin-field">
+          <span>Display name (optional)</span>
+          <input type="text" id="signin-name" placeholder="What should the coach call you?" maxlength="40">
+        </label>
+        <label class="signin-field">
+          <span>Invite passphrase</span>
+          <input type="password" id="signin-pass" placeholder="Ask the owner" required autocomplete="off">
+        </label>
+        <button class="btn btn--primary btn--lg signin-submit" type="submit" id="signin-submit">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+          Continue
+        </button>
+        <div class="signin-error" id="signin-error" hidden></div>
+      </form>
+
+      <p class="signin-foot">By continuing you agree not to abuse the shared coach service. Your video never leaves your device; only rep-quality summaries are sent to the coach for feedback.</p>
     </div>
     <div class="modal-backdrop" id="signin-backdrop"></div>
   </div>
