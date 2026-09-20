@@ -503,6 +503,12 @@ a { color: inherit; text-decoration: none; }
      a sensible landscape default while the camera warms up. */
   aspect-ratio: 16 / 9;
   box-shadow: var(--shadow-lg);
+  /* isolation + a rendering context on the container prevents the
+     iOS Safari 'border-radius + overflow: hidden + <video>' black
+     frame bug from clobbering the video layer. */
+  isolation: isolate;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 .live-stage video, .live-stage canvas {
   position: absolute;
@@ -516,12 +522,25 @@ a { color: inherit; text-decoration: none; }
 }
 /* Only the video paints black behind its letterbox area; the canvas
    MUST stay transparent so the video underneath shows through. */
-.live-stage video { background: #000; }
+.live-stage video {
+  background: #000;
+  /* Force iOS Safari to give the <video> its own compositing layer.
+     Without this the video paints black under the rounded container
+     even when frames are streaming and MediaPipe reads them fine. */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+}
 .live-stage canvas { background: transparent; pointer-events: none; }
 /* Mirror the front camera so 'move phone right' looks like 'move
    right'. The canvas overlay mirrors with the video so the drawn
-   skeleton stays glued to the body. Rear camera stays unmirrored. */
-.live-stage[data-facing="user"] video,
+   skeleton stays glued to the body. Rear camera stays unmirrored.
+   translateZ keeps the compositing layer from disappearing when the
+   scale transform is applied on iOS. */
+.live-stage[data-facing="user"] video {
+  -webkit-transform: scaleX(-1) translateZ(0);
+  transform: scaleX(-1) translateZ(0);
+}
 .live-stage[data-facing="user"] canvas {
   transform: scaleX(-1);
 }

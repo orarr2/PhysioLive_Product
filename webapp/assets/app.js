@@ -316,26 +316,42 @@ async function openCameraStream(preferredDeviceId) {
     throw lastError || new Error("Could not open any camera");
   }
 
-  state.stream = stream;
-  state.video.srcObject = stream;
-  // iOS Safari needs these set BEFORE play(); belt + braces.
+  // iOS Safari: playsinline + muted must be present on the element
+  // BEFORE the stream is attached, otherwise the first playback attempt
+  // silently produces black frames. We set them again defensively.
   state.video.muted = true;
   state.video.setAttribute("playsinline", "");
-  try {
-    await state.video.play();
-  } catch (e) {
-    // iOS sometimes rejects the first play() until the metadata fires.
-    // Wait for the event and retry once.
+  state.video.setAttribute("webkit-playsinline", "true");
+  state.video.setAttribute("autoplay", "");
+
+  state.stream = stream;
+  state.video.srcObject = stream;
+
+  // Kick playback. On iOS the first play() can reject if the media
+  // pipeline is still warming up; we wait for `loadedmetadata` and
+  // retry. If the video is still zero-sized 800ms after play resolves
+  // we call load() once - this is the specific incantation that
+  // recovers from iOS Safari's black-video state after a stream swap.
+  const kickPlay = async () => {
+    try { await state.video.play(); } catch (_) { /* handled below */ }
+  };
+  await kickPlay();
+  if (state.video.readyState < 2) {
     await new Promise((resolve) => {
       const on = () => {
         state.video.removeEventListener("loadedmetadata", on);
         resolve();
       };
       state.video.addEventListener("loadedmetadata", on, { once: true });
-      // Safety: resolve after 1500ms even if the event never comes.
       setTimeout(on, 1500);
     });
-    try { await state.video.play(); } catch (_) { /* give up quietly */ }
+    await kickPlay();
+  }
+  // Force a re-render pass if iOS handed us a black surface.
+  await new Promise(r => setTimeout(r, 800));
+  if (!state.video.videoWidth || state.video.paused) {
+    try { state.video.load(); } catch (_) { /* noop */ }
+    await kickPlay();
   }
 
   const track = stream.getVideoTracks()[0];
@@ -440,6 +456,18 @@ async function loop() {
   if (frame) drawSkeleton(state.ctx, frame, w, h);
 
   const lm = frame && frame.pose;
+  if (!lm) {
+    // No pose at all - either the camera is not delivering frames yet
+    // or the user is fully out of frame. Reset the framing hint after
+    // ~3 s of nothing so a stale message doesn't hide a real problem.
+    state.framingMissingFrames++;
+    if (state.framingMissingFrames > 60 && state.framingHintActive) {
+      state.framingHintActive = false;
+      setCoach("Waiting for a full body in the frame. Stand back so "
+             + "your head, hips and ankles are all visible.",
+               "warn", null);
+    }
+  }
   if (lm) {
     checkFraming(lm);
     const ex = EXERCISES[state.exerciseId];
