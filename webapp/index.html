@@ -6,6 +6,13 @@
   <meta name="theme-color" content="#0a0d14">
   <meta name="description" content="Real-time physiotherapy coach that runs in your browser. Camera and pose stay on your device.">
   <title>PhysioLive - AI physiotherapy coach</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="mask-icon" href="favicon.svg" color="#a78bfa">
+  <link rel="apple-touch-icon" href="apple-touch-icon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PhysioLive">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -35,10 +42,23 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
         <span>History</span>
       </button>
-      <button class="nav-btn nav-btn--ghost" id="nav-signin" title="Sign in with Google">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        <span id="signin-label">Sign in</span>
-      </button>
+      <div class="user-menu-wrap">
+        <button class="nav-btn nav-btn--ghost" id="nav-signin" title="Account">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span id="signin-label">Sign in</span>
+          <svg class="user-menu-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="user-menu" id="user-menu" hidden role="menu">
+          <div class="user-menu-head">
+            <div class="user-menu-label">Signed in as</div>
+            <div class="user-menu-name" id="user-menu-name">-</div>
+          </div>
+          <button class="user-menu-signout" id="user-menu-signout" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+            Sign out
+          </button>
+        </div>
+      </div>
     </nav>
   </header>
 

@@ -45,6 +45,8 @@ const state = {
   cameras: [],
   activeCameraId: null,
   activeFacing: "user",
+  framingMissingFrames: 0,
+  framingHintActive: false,
 };
 
 // Meta / icons for the exercise cards.
@@ -142,13 +144,31 @@ function wireLive() {
   state.video.addEventListener("loadedmetadata", updateStageAspect);
   state.video.addEventListener("resize", updateStageAspect);
 
-  // Camera picker.
+  // Camera picker. deviceId is kept in-session only (see openCameraStream
+  // for why we never persist it).
   const sel = document.getElementById("camera-select");
   sel.addEventListener("change", async (e) => {
     const id = e.target.value;
-    localStorage.setItem(CAMERA_STORAGE_KEY, id);
+    state.activeCameraId = id;
     await switchCamera(id);
   });
+}
+
+function describeCameraError(e) {
+  const name = (e && e.name) || "";
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return "Camera access was blocked. Grant permission in your "
+         + "browser settings and reload the page.";
+  }
+  if (name === "NotFoundError" || name === "OverconstrainedError") {
+    return "No usable camera was found. If you are on iOS, try the "
+         + "back camera or close other apps using the camera.";
+  }
+  if (name === "NotReadableError") {
+    return "The camera is busy in another app. Close FaceTime, Zoom, "
+         + "or other browsers and try again.";
+  }
+  return `Camera error: ${(e && e.message) || e}`;
 }
 
 function updateStageAspect() {
@@ -196,16 +216,20 @@ async function beginSession(exerciseId) {
 
   showLoading(true);
   try {
-    const savedId = localStorage.getItem(CAMERA_STORAGE_KEY);
-    await openCameraStream(savedId);
+    // Never persist deviceId across page loads - iOS Safari changes
+    // deviceIds between grants and a stale id yields a black stream.
+    await openCameraStream(state.activeCameraId);
     await ensurePose();
     await refreshCameraList();
   } catch (e) {
     showLoading(false);
-    setCoach(`Camera error: ${e.message || e}`, "bad", null);
+    const msg = describeCameraError(e);
+    setCoach(msg, "bad", null);
     return;
   }
   showLoading(false);
+  state.framingMissingFrames = 0;
+  state.framingHintActive = false;
 
   state.repCounter = new RepCounter(ex.repDef);
   state.reps = [];
@@ -232,31 +256,88 @@ function showLoading(v) {
 }
 
 // -------------------------------------------------------------- camera
+/**
+ * Open a camera stream. iOS Safari refuses `{deviceId: {exact}}` when
+ * the device isn't yet known (no prior permission grant) and it also
+ * fails hard on `OverconstrainedError` without falling back. We walk
+ * an explicit ladder of constraints so the first successful one wins.
+ *
+ * Order:
+ *   1. exact deviceId  (only after a prior grant this session).
+ *   2. facingMode user (front / selfie).
+ *   3. facingMode env  (back camera on phones).
+ *   4. video: true     (whatever the browser gives us).
+ */
 async function openCameraStream(preferredDeviceId) {
-  // Stop the previous track cleanly before opening a new one so the
-  // browser lets the same device be reused.
   if (state.stream) {
     state.stream.getTracks().forEach(t => t.stop());
     state.stream = null;
   }
-  const constraints = {
-    video: preferredDeviceId
-      ? {
-          deviceId: { exact: preferredDeviceId },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        }
-      : {
-          facingMode: { ideal: "user" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
+  state.video.srcObject = null;
+
+  const attempts = [];
+  if (preferredDeviceId) {
+    attempts.push({
+      video: {
+        deviceId: { exact: preferredDeviceId },
+        width: { ideal: 1280 }, height: { ideal: 720 },
+      },
+      audio: false,
+    });
+  }
+  attempts.push({
+    video: {
+      facingMode: { ideal: "user" },
+      width: { ideal: 1280 }, height: { ideal: 720 },
+    },
     audio: false,
-  };
-  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  });
+  attempts.push({
+    video: {
+      facingMode: { ideal: "environment" },
+      width: { ideal: 1280 }, height: { ideal: 720 },
+    },
+    audio: false,
+  });
+  attempts.push({ video: true, audio: false });
+
+  let stream = null;
+  let lastError = null;
+  for (const constraints of attempts) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (stream && stream.getVideoTracks().length) break;
+    } catch (e) {
+      lastError = e;
+      // Overconstrained / NotFound / NotReadable -> try next rung.
+    }
+  }
+  if (!stream) {
+    throw lastError || new Error("Could not open any camera");
+  }
+
   state.stream = stream;
   state.video.srcObject = stream;
-  await state.video.play();
+  // iOS Safari needs these set BEFORE play(); belt + braces.
+  state.video.muted = true;
+  state.video.setAttribute("playsinline", "");
+  try {
+    await state.video.play();
+  } catch (e) {
+    // iOS sometimes rejects the first play() until the metadata fires.
+    // Wait for the event and retry once.
+    await new Promise((resolve) => {
+      const on = () => {
+        state.video.removeEventListener("loadedmetadata", on);
+        resolve();
+      };
+      state.video.addEventListener("loadedmetadata", on, { once: true });
+      // Safety: resolve after 1500ms even if the event never comes.
+      setTimeout(on, 1500);
+    });
+    try { await state.video.play(); } catch (_) { /* give up quietly */ }
+  }
+
   const track = stream.getVideoTracks()[0];
   if (track) {
     const settings = track.getSettings ? track.getSettings() : {};
@@ -302,24 +383,65 @@ async function switchCamera(deviceId) {
   try {
     await openCameraStream(deviceId);
   } catch (e) {
-    setCoach(`Camera switch failed: ${e.message || e}`, "bad", null);
+    setCoach(describeCameraError(e), "bad", null);
   }
   showLoading(false);
+}
+
+/**
+ * Show a hint when the exercise's required lower-body landmarks are
+ * out of frame for more than ~2 seconds. Reset the hint once they
+ * come back so the coach message returns to whatever it was showing.
+ * MediaPipe reports each landmark's `visibility` in [0, 1]; below ~0.5
+ * the joint is either occluded or off-frame.
+ */
+const FRAMING_JOINTS = [23, 24, 25, 26, 27, 28]; // hips, knees, ankles
+const FRAMING_MIN_VISIBILITY = 0.5;
+const FRAMING_FRAMES_TO_HINT = 45;   // roughly 2 seconds at 20 fps
+
+function checkFraming(pose) {
+  if (!pose) return;
+  const missing = FRAMING_JOINTS.some(idx => {
+    const lm = pose[idx];
+    if (!lm) return true;
+    const v = lm.visibility != null ? lm.visibility : 1;
+    return v < FRAMING_MIN_VISIBILITY;
+  });
+  if (missing) {
+    state.framingMissingFrames++;
+    if (state.framingMissingFrames >= FRAMING_FRAMES_TO_HINT
+        && !state.framingHintActive) {
+      state.framingHintActive = true;
+      setCoach(
+        "Step back so your hips, knees and ankles are all in the "
+        + "frame. Reps only count when the whole body is visible.",
+        "warn", null);
+    }
+  } else {
+    if (state.framingHintActive) {
+      state.framingHintActive = false;
+      setCoach("Nice - full body in frame. Start when you are ready.",
+               "idle", null);
+    }
+    state.framingMissingFrames = 0;
+  }
 }
 
 // -------------------------------------------------------------- loop
 async function loop() {
   if (!state.running) return;
   const ts = performance.now();
-  const lm = await inferPose(state.video, ts);
+  const frame = await inferPose(state.video, ts);
   const w = state.video.videoWidth || state.canvas.width || 1280;
   const h = state.video.videoHeight || state.canvas.height || 720;
   if (state.canvas.width !== w) state.canvas.width = w;
   if (state.canvas.height !== h) state.canvas.height = h;
   state.ctx.clearRect(0, 0, w, h);
-  if (lm) drawSkeleton(state.ctx, lm, w, h);
+  if (frame) drawSkeleton(state.ctx, frame, w, h);
 
+  const lm = frame && frame.pose;
   if (lm) {
+    checkFraming(lm);
     const ex = EXERCISES[state.exerciseId];
     const angles = allAngles(lm);
     const primary = pickPrimary(angles, ex);
@@ -735,14 +857,53 @@ function wireSignIn() {
 }
 
 function wireNavSignIn() {
-  document.getElementById("nav-signin").addEventListener("click", () => {
-    if (isSignedIn()) {
-      signOut();
-      refreshSignInLabel();
-      toast("Signed out.");
+  const btn = document.getElementById("nav-signin");
+  const menu = document.getElementById("user-menu");
+  const wrap = btn.closest(".user-menu-wrap");
+  const signoutBtn = document.getElementById("user-menu-signout");
+  const nameEl = document.getElementById("user-menu-name");
+
+  const closeMenu = () => {
+    menu.hidden = true;
+    if (wrap) wrap.dataset.open = "false";
+  };
+  const openMenu = () => {
+    const profile = getSavedProfile();
+    nameEl.textContent =
+      (profile && (profile.display_name || profile.name || profile.email))
+      || "You";
+    menu.hidden = false;
+    if (wrap) wrap.dataset.open = "true";
+  };
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!isSignedIn()) {
+      openSignInModal();
       return;
     }
-    openSignInModal();
+    if (menu.hidden) openMenu(); else closeMenu();
+  });
+
+  signoutBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    signOut();
+    refreshSignInLabel();
+    closeMenu();
+    toast("Signed out.");
+    // If the user was mid-session, tear it down cleanly.
+    if (state.running) endSession();
+  });
+
+  // Any click outside the menu closes it.
+  document.addEventListener("click", (e) => {
+    if (menu.hidden) return;
+    if (menu.contains(e.target) || btn.contains(e.target)) return;
+    closeMenu();
+  });
+  // Escape closes it too.
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeMenu();
   });
 }
 
