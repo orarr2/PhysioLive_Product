@@ -47,6 +47,11 @@ const state = {
   activeFacing: "user",
   framingMissingFrames: 0,
   framingHintActive: false,
+  camReadyEventFired: false,
+  posesSeen: 0,
+  handsSeen: 0,
+  cameraOpenedAt: 0,
+  debugAutoShown: false,
 };
 
 // Meta / icons for the exercise cards.
@@ -152,6 +157,76 @@ function wireLive() {
     state.activeCameraId = id;
     await switchCamera(id);
   });
+
+  // Diagnostics close button.
+  const dbgClose = document.getElementById("cam-debug-close");
+  if (dbgClose) dbgClose.addEventListener("click", () => {
+    document.getElementById("cam-debug").hidden = true;
+  });
+}
+
+// -------------------------------------------------------------- diagnostics
+/**
+ * Refresh the on-screen camera diagnostics panel. Auto-opens after
+ * 3 s if the video has not started painting real frames yet, so the
+ * user sees exactly which layer is failing without asking the dev
+ * for another round of "please try again".
+ */
+let _dbgLastRender = 0;
+function updateCameraDebug() {
+  const now = Date.now();
+  if (now - _dbgLastRender < 400) return;
+  _dbgLastRender = now;
+
+  const panel = document.getElementById("cam-debug");
+  const rows = document.getElementById("cam-debug-rows");
+  if (!panel || !rows) return;
+
+  const v = state.video;
+  const stream = state.stream;
+  const tracks = stream ? stream.getVideoTracks() : [];
+  const t = tracks[0];
+  const settings = t && t.getSettings ? t.getSettings() : {};
+  const elapsed = state.cameraOpenedAt
+    ? ((now - state.cameraOpenedAt) / 1000).toFixed(1) + "s" : "-";
+
+  const painted = v.videoWidth > 0 && v.videoHeight > 0;
+  const shouldAutoShow =
+    state.cameraOpenedAt
+    && (now - state.cameraOpenedAt) > 3000
+    && (!painted || v.paused || state.posesSeen === 0)
+    && !state.debugAutoShown;
+  if (shouldAutoShow) {
+    panel.hidden = false;
+    state.debugAutoShown = true;
+  }
+  if (panel.hidden) return;
+
+  const items = [
+    ["stream tracks", tracks.length, tracks.length >= 1 ? "ok" : "bad"],
+    ["track state", t ? t.readyState : "-", t && t.readyState === "live" ? "ok" : "bad"],
+    ["track muted", t ? String(t.muted) : "-", t && !t.muted ? "ok" : "bad"],
+    ["track label", t ? (t.label || "-") : "-", ""],
+    ["facingMode", settings.facingMode || state.activeFacing || "-", ""],
+    ["v.readyState", v.readyState, v.readyState >= 2 ? "ok" : "bad"],
+    ["v.paused", String(v.paused), v.paused ? "bad" : "ok"],
+    ["v.dimensions", `${v.videoWidth}x${v.videoHeight}`, painted ? "ok" : "bad"],
+    ["v.currentTime", v.currentTime.toFixed(2), v.currentTime > 0 ? "ok" : "bad"],
+    ["playing event", state.camReadyEventFired ? "yes" : "no", state.camReadyEventFired ? "ok" : "bad"],
+    ["poses detected", state.posesSeen, state.posesSeen > 0 ? "ok" : "bad"],
+    ["hands detected", state.handsSeen, ""],
+    ["elapsed", elapsed, ""],
+    ["UA", (navigator.userAgent.match(/(iPhone|iPad|Android|Chrome|Safari|Firefox|Edg)\/?\S*/g) || []).slice(0, 3).join(" "), ""],
+  ];
+  rows.innerHTML = "";
+  items.forEach(([k, val, cls]) => {
+    const row = document.createElement("div");
+    row.className = "cam-debug-row";
+    row.innerHTML = `<span class="cam-debug-row-key"></span><span class="cam-debug-row-val ${cls || ""}"></span>`;
+    row.children[0].textContent = k;
+    row.children[1].textContent = String(val);
+    rows.appendChild(row);
+  });
 }
 
 function describeCameraError(e) {
@@ -230,6 +305,10 @@ async function beginSession(exerciseId) {
   showLoading(false);
   state.framingMissingFrames = 0;
   state.framingHintActive = false;
+  state.posesSeen = 0;
+  state.handsSeen = 0;
+  state.debugAutoShown = false;
+  document.getElementById("cam-debug").hidden = true;
 
   state.repCounter = new RepCounter(ex.repDef);
   state.reps = [];
@@ -273,7 +352,9 @@ async function openCameraStream(preferredDeviceId) {
     state.stream.getTracks().forEach(t => t.stop());
     state.stream = null;
   }
-  state.video.srcObject = null;
+  // Do NOT null out srcObject on iOS - transitioning from null back to
+  // a stream is a known trigger for the black-video state. We only
+  // clear it if there is nothing to replace it with.
 
   const attempts = [];
   if (preferredDeviceId) {
@@ -362,6 +443,15 @@ async function openCameraStream(preferredDeviceId) {
     document.querySelector(".live-stage")
       .setAttribute("data-facing", state.activeFacing || "user");
   }
+  state.cameraOpenedAt = Date.now();
+  state.camReadyEventFired = false;
+  const onReady = () => {
+    state.camReadyEventFired = true;
+    state.video.removeEventListener("playing", onReady);
+    state.video.removeEventListener("loadeddata", onReady);
+  };
+  state.video.addEventListener("playing", onReady);
+  state.video.addEventListener("loadeddata", onReady);
   updateStageAspect();
 }
 
@@ -454,6 +544,9 @@ async function loop() {
   if (state.canvas.height !== h) state.canvas.height = h;
   state.ctx.clearRect(0, 0, w, h);
   if (frame) drawSkeleton(state.ctx, frame, w, h);
+  if (frame && frame.pose) state.posesSeen++;
+  if (frame && frame.hands) state.handsSeen += frame.hands.length;
+  updateCameraDebug();
 
   const lm = frame && frame.pose;
   if (!lm) {

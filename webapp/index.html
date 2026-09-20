@@ -35,7 +35,6 @@
         </defs>
       </svg>
       <span class="brand-text">PhysioLive</span>
-      <span class="brand-tag">beta</span>
     </div>
     <nav class="nav-actions">
       <button class="nav-btn nav-btn--ghost" id="nav-history" title="Session history">
@@ -274,6 +273,14 @@
       <div class="live-loading" id="live-loading">
         <div class="loading-spinner"></div>
         <div class="loading-text">Warming up the pose engine...</div>
+      </div>
+
+      <div class="cam-debug" id="cam-debug" hidden>
+        <div class="cam-debug-head">
+          <span>Camera diagnostics</span>
+          <button class="cam-debug-close" id="cam-debug-close" aria-label="Hide">&times;</button>
+        </div>
+        <div class="cam-debug-rows" id="cam-debug-rows"></div>
       </div>
     </div>
 

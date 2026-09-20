@@ -495,55 +495,91 @@ a { color: inherit; text-decoration: none; }
 
 .live-stage {
   position: relative;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
   background: #000;
   min-height: 320px;
   /* Actual ratio is set from JS after the video track loads. This is
      a sensible landscape default while the camera warms up. */
   aspect-ratio: 16 / 9;
   box-shadow: var(--shadow-lg);
-  /* isolation + a rendering context on the container prevents the
-     iOS Safari 'border-radius + overflow: hidden + <video>' black
-     frame bug from clobbering the video layer. */
-  isolation: isolate;
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
+  /* NO border-radius / overflow: hidden here - the combination with
+     a child <video> is the specific iOS Safari 17+ trigger that
+     produces black frames even when the MediaStream is flowing. We
+     clip the video and canvas individually instead. */
 }
 .live-stage video, .live-stage canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  /* contain keeps the whole frame visible - no more center-crop
-     zoom on portrait mobile. On desktop the container matches the
-     track ratio so contain and cover look identical there. */
-  object-fit: contain;
+  border-radius: var(--radius-lg);
+  /* cover fills the container without letterboxing. The container
+     aspect-ratio is set from JS to match the track dimensions, so
+     cover shows the entire frame with no crop when the ratios line
+     up. Cover renders reliably on iOS Safari; contain does not. */
+  object-fit: cover;
+  display: block;
 }
-/* Only the video paints black behind its letterbox area; the canvas
-   MUST stay transparent so the video underneath shows through. */
-.live-stage video {
-  background: #000;
-  /* Force iOS Safari to give the <video> its own compositing layer.
-     Without this the video paints black under the rounded container
-     even when frames are streaming and MediaPipe reads them fine. */
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-  will-change: transform;
-}
+.live-stage video { background: #000; }
 .live-stage canvas { background: transparent; pointer-events: none; }
 /* Mirror the front camera so 'move phone right' looks like 'move
-   right'. The canvas overlay mirrors with the video so the drawn
-   skeleton stays glued to the body. Rear camera stays unmirrored.
-   translateZ keeps the compositing layer from disappearing when the
-   scale transform is applied on iOS. */
-.live-stage[data-facing="user"] video {
-  -webkit-transform: scaleX(-1) translateZ(0);
-  transform: scaleX(-1) translateZ(0);
-}
+   right'. Both the video and its overlay canvas mirror together so
+   the skeleton stays glued to the body. Rear camera stays as-is. */
+.live-stage[data-facing="user"] video,
 .live-stage[data-facing="user"] canvas {
   transform: scaleX(-1);
 }
+
+/* Camera diagnostics overlay - only visible when the debug panel is
+   opened (auto-opens when the camera fails to render for 3s). */
+.cam-debug {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 5;
+  min-width: 240px;
+  max-width: 320px;
+  padding: 10px 12px;
+  background: rgba(10, 13, 20, 0.9);
+  border: 1px solid var(--bad);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+}
+.cam-debug-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bad);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.cam-debug-close {
+  background: transparent;
+  color: var(--text-mid);
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.cam-debug-close:hover { color: var(--text); }
+.cam-debug-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cam-debug-row-key { color: var(--text-dim); }
+.cam-debug-row-val { color: var(--text); word-break: break-all; text-align: right; }
+.cam-debug-row-val.ok { color: var(--good); }
+.cam-debug-row-val.bad { color: var(--bad); }
 
 .live-camera-select {
   display: inline-flex;
