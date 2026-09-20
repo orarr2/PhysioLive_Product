@@ -456,9 +456,11 @@ a { color: inherit; text-decoration: none; }
      zoom on portrait mobile. On desktop the container matches the
      track ratio so contain and cover look identical there. */
   object-fit: contain;
-  background: #000;
 }
-.live-stage canvas { pointer-events: none; }
+/* Only the video paints black behind its letterbox area; the canvas
+   MUST stay transparent so the video underneath shows through. */
+.live-stage video { background: #000; }
+.live-stage canvas { background: transparent; pointer-events: none; }
 /* Mirror the front camera so 'move phone right' looks like 'move
    right'. The canvas overlay mirrors with the video so the drawn
    skeleton stays glued to the body. Rear camera stays unmirrored. */
