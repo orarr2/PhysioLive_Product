@@ -1,0 +1,11 @@
+[Unit]
+Description=Watch cloudflared for a fresh tunnel URL
+
+[Path]
+# Fires when cloudflared drops a new URL into this file, and again
+# whenever cloudflared restarts (Unit=... triggers on service state).
+PathChanged=/var/log/cloudflared-url.txt
+Unit=publish-tunnel-url.service
+
+[Install]
+WantedBy=multi-user.target
