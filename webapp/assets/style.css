@@ -717,6 +717,17 @@ a { color: inherit; text-decoration: none; }
 .hud-ring[data-level="good"] .ring-fill { stroke: #34d399; filter: drop-shadow(0 0 6px rgba(52,211,153,0.5)); }
 .hud-ring[data-level="warn"] .ring-fill { stroke: #fbbf24; filter: drop-shadow(0 0 6px rgba(251,191,36,0.5)); }
 .hud-ring[data-level="bad"]  .ring-fill { stroke: #f87171; filter: drop-shadow(0 0 6px rgba(248,113,113,0.5)); }
+/* Mid-rep form warning: pulses the ring red while a bad-form metric
+   is active, without waiting for rep-close. */
+.hud-ring[data-form-warn="true"] .ring-fill {
+  stroke: #f87171 !important;
+  filter: drop-shadow(0 0 8px rgba(248, 113, 113, 0.7)) !important;
+  animation: ring-warn-pulse 0.6s ease-in-out infinite;
+}
+@keyframes ring-warn-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
 .hud-ring-center {
   position: absolute;
   inset: 0;
@@ -737,6 +748,70 @@ a { color: inherit; text-decoration: none; }
   font-size: 10px;
   color: var(--text-dim);
   margin-top: 2px;
+}
+
+/* Live depth indicator */
+.hud-depth {
+  position: absolute;
+  top: 116px;
+  right: 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(10, 13, 20, 0.82);
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+}
+.hud-depth-label {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.hud-depth-bar {
+  width: 120px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+.hud-depth-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--brand-1);
+  border-radius: 999px;
+  transition: width 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.hud-depth-fill[data-state="close"] {
+  background: var(--warn);
+}
+.hud-depth-fill[data-state="hit"] {
+  background: var(--good);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.6);
+}
+.hud-depth-pct {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 40px;
+  text-align: right;
+}
+@media (max-width: 640px) {
+  .hud-depth {
+    top: auto;
+    bottom: 148px;
+    left: 16px;
+    right: 16px;
+    justify-content: space-between;
+  }
+  .hud-depth-bar { flex: 1; margin: 0 8px; }
 }
 
 /* Bottom bar */

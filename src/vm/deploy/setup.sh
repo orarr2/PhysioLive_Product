@@ -98,6 +98,16 @@ PHYSIOLIVE_JWT_TTL=604800
 PHYSIOLIVE_LIMIT_PER_MIN=30/minute
 PHYSIOLIVE_LIMIT_PER_DAY=500/day
 PHYSIOLIVE_USER_LIMIT=20/minute
+
+# --- Daily summary email (Gmail SMTP) ------------------------------
+# Generate an App Password at https://myaccount.google.com/apppasswords
+# (requires 2-Step Verification on the account first) and paste it as
+# EMAIL_APP_PASSWORD below with no spaces.
+EMAIL_SMTP_HOST=smtp.gmail.com
+EMAIL_SMTP_PORT=587
+EMAIL_ADDRESS=projgithub@gmail.com
+EMAIL_APP_PASSWORD=CHANGE_ME_NO_SPACES
+REPORT_RECIPIENT=projgithub@gmail.com
 EOF
     chmod 600 "${ENV_FILE}"
     chown root:root "${ENV_FILE}"

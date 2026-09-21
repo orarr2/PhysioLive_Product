@@ -58,6 +58,14 @@ function evalCondition(cond, sample) {
 
 export function evaluate(sample, rules) {
   const violations = [];
+  // A shallow rep that would otherwise pass every rule still deserves
+  // feedback so the user knows to go deeper next time.
+  if (sample && sample.shallow) {
+    violations.push({
+      ruleId: "shallow_soft", level: "warn",
+      message: "Rep counted, but shallow. Try to reach the target depth.",
+    });
+  }
   for (const r of rules) {
     if (evalCondition(r.condition || {}, sample)) {
       violations.push({

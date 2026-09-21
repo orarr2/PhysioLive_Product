@@ -24,6 +24,7 @@ import {
 import {
   openSession, appendRep, closeSession, pastSessions,
 } from "./session.js";
+import { sendDailyReport } from "./report_client.js";
 
 // ============================================================ STATE
 const state = {
@@ -568,9 +569,14 @@ async function loop() {
     const primary = pickPrimary(angles, ex);
     const metrics = buildMetrics(angles, ex.repDef.bottomDeg < ex.repDef.standingDeg);
     const event = state.repCounter.update(primary, metrics);
-    document.getElementById("hud-phase").textContent = state.repCounter.state;
+    document.getElementById("hud-phase").textContent = state.repCounter.displayPhase;
     document.getElementById("hud-angle").textContent =
       primary != null ? `${Math.round(primary)}°` : "--";
+    // Live during-rep indicators: depth %, form flash on mid-rep
+    // form breaks. All observable BEFORE rep-close so the user can
+    // course-correct instead of only reading feedback after.
+    updateDepthIndicator(primary, ex);
+    updateFormFlash(metrics, ex);
 
     if (event) {
       const verdict = evaluate(event.sample, ex.rules);
@@ -654,6 +660,46 @@ function updateRing(count, goal, level) {
     (dash * (1 - pct)).toFixed(1);
 }
 
+/**
+ * Live depth indicator - fills from 0% (angle at standing) to 100%
+ * (angle at bottom target). Runs every frame, not only at rep-close,
+ * so the user can see how deep they are going in real time.
+ */
+function updateDepthIndicator(primary, ex) {
+  const bar = document.getElementById("depth-fill");
+  const pctEl = document.getElementById("depth-pct");
+  if (!bar || !pctEl) return;
+  const { standingDeg, bottomDeg } = ex.repDef;
+  const range = standingDeg - bottomDeg;
+  let pct = 0;
+  if (primary != null && range !== 0) {
+    pct = ((standingDeg - primary) / range) * 100;
+  }
+  pct = Math.max(0, Math.min(120, pct));
+  bar.style.width = `${Math.min(100, pct)}%`;
+  bar.dataset.state = pct >= 100 ? "hit" : (pct >= 60 ? "close" : "");
+  pctEl.textContent = `${Math.round(pct)}%`;
+}
+
+/**
+ * Mid-rep form flash. Fires immediately when knee-over-toe or torso
+ * lean crosses a threshold DURING the descent, without waiting for
+ * the rep to close. Uses a data attribute on the ring that CSS turns
+ * into a red pulse.
+ */
+function updateFormFlash(metrics, ex) {
+  const ring = document.querySelector(".hud-ring");
+  if (!ring) return;
+  let warn = false;
+  if (state.repCounter && state.repCounter.state === "BOTTOM") {
+    if (metrics.knee_over_toe_norm != null
+        && metrics.knee_over_toe_norm > 0.4) warn = true;
+    if (metrics.torso_vertical != null
+        && metrics.torso_vertical > 45) warn = true;
+  }
+  ring.dataset.formWarn = warn ? "true" : "false";
+}
+
 function setCoach(text, level, sourceUrl) {
   const banner = document.getElementById("coach-banner");
   banner.dataset.level = level || "idle";
@@ -715,7 +761,46 @@ function endSession() {
   const uid = currentUserId() || "u_anon";
   if (state.sessionId) closeSession(uid, state.sessionId);
 
+  // Fire-and-forget: try to send today's summary email. The VM
+  // dedupes so extra sessions in the same day silently no-op.
+  triggerDailyReport(uid, { silent: true });
+
   showSummary();
+}
+
+/**
+ * Send the daily summary and surface the outcome. `silent` = true
+ * suppresses success toasts (used on auto-send at end of session);
+ * the summary button uses silent=false so the user sees confirmation.
+ */
+async function triggerDailyReport(uid, { silent = false } = {}) {
+  const btn = document.getElementById("summary-send-report");
+  if (btn && !silent) {
+    btn.disabled = true;
+    btn.dataset.state = "sending";
+  }
+  // closeSession already stamped endedAt on the just-finished session,
+  // so pastSessions returns it - no need to snapshot separately.
+  const all = pastSessions(uid, 200);
+  const result = await sendDailyReport(uid, all);
+  if (btn && !silent) {
+    btn.disabled = false;
+    btn.dataset.state = result.ok ? "sent" : "error";
+  }
+  if (silent) return;
+  if (result.ok && result.sent) {
+    toast("Daily summary emailed.");
+  } else if (result.ok && result.sent === false) {
+    toast("Today's summary already sent.");
+  } else if (result.reason === "email-not-configured") {
+    toast("Email not configured on the VM yet.");
+  } else if (result.reason === "no-sessions-today") {
+    toast("No sessions today to summarise.");
+  } else if (result.reason === "rate-limited") {
+    toast("Report rate limit hit - try again later.");
+  } else {
+    toast(`Report failed (${result.reason || "unknown"}).`);
+  }
 }
 
 function showSummary() {
@@ -883,6 +968,11 @@ function wireSummary() {
     .addEventListener("click", () => beginSession(state.exerciseId));
   document.getElementById("summary-home")
     .addEventListener("click", () => setView("landing"));
+  document.getElementById("summary-send-report")
+    .addEventListener("click", async () => {
+      const uid = currentUserId() || "u_anon";
+      await triggerDailyReport(uid, { silent: false });
+    });
 }
 
 // ============================================================ HISTORY DRAWER
@@ -1087,6 +1177,13 @@ function pickPrimary(angles, ex) {
     family === "shoulder" ? [angles.shoulder_left, angles.shoulder_right] :
     family === "elbow"    ? [angles.elbow_left, angles.elbow_right] :
     [null, null];
+  // Bilateral exercises (squat, glute bridge) require BOTH sides to be
+  // visible; otherwise a single-leg raise or a hand near the camera
+  // would fake a rep. Returning null keeps the counter in STANDING.
+  if (ex.repDef.bilateral) {
+    if (a == null || b == null) return null;
+    return dec ? Math.min(a, b) : Math.max(a, b);
+  }
   if (a != null && b != null) return dec ? Math.min(a, b) : Math.max(a, b);
   return a != null ? a : b;
 }

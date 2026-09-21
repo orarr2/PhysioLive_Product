@@ -44,6 +44,9 @@ from vm.auth import (                                                        # n
     require_auth, issue_passphrase_token, issue_google_token,
 )
 from vm.coach_llm import call_llm                                            # noqa: E402
+from vm.email_report import (                                                 # noqa: E402
+    send_daily_report, EmailNotConfigured,
+)
 
 
 # ------------------------------------------------------------------ rate limits
@@ -75,7 +78,7 @@ limiter = Limiter(
 
 # ------------------------------------------------------------------ app
 
-app = FastAPI(title="PhysioLive VM", version="1.1.0")
+app = FastAPI(title="PhysioLive VM", version="1.2.0")
 app.state.limiter = limiter
 
 
@@ -156,6 +159,37 @@ class AuthResponse(BaseModel):
     jwt: str
     exp: int
     profile: Dict
+
+
+class RepEntry(BaseModel):
+    index: int
+    level: str = Field(default="warn", max_length=20)
+    text: str = Field(default="", max_length=500)
+    primary_min: Optional[float] = None
+    knee_min: Optional[float] = None
+    hip_min: Optional[float] = None
+    torso_max: Optional[float] = None
+
+
+class SessionEntry(BaseModel):
+    exercise: str = Field(max_length=40)
+    exercise_name: Optional[str] = Field(default=None, max_length=80)
+    startedAt: Optional[int] = None
+    endedAt: Optional[int] = None
+    reps: List[RepEntry] = Field(default_factory=list)
+
+
+class DailyReportRequest(BaseModel):
+    sessions: List[SessionEntry] = Field(default_factory=list, max_length=100)
+
+
+class DailyReportResponse(BaseModel):
+    ok: bool
+    sent: bool
+    reason: Optional[str] = None
+    date: Optional[str] = None
+    total_reps: Optional[int] = None
+    used_llm: Optional[bool] = None
 
 
 # ------------------------------------------------------------------ routes
@@ -248,3 +282,31 @@ def coach_feedback(request: Request, body: CoachFeedbackRequest,
         used_llm=used_llm,
         took_ms=took_ms,
     )
+
+
+@app.post("/report/daily/send", response_model=DailyReportResponse)
+@limiter.limit("5/hour")
+def report_daily_send(request: Request, body: DailyReportRequest,
+                      user: Dict = Depends(require_auth)
+                      ) -> DailyReportResponse:
+    """Compose and email a daily summary of the user's sessions.
+
+    The web app calls this at end-of-session; the VM aggregates the
+    payload, asks the coach LLM for a free-form clinical opinion, and
+    sends the whole thing via Gmail SMTP to the operator's inbox.
+    Rate-limited to one email per user per day server-side.
+    """
+    try:
+        result = send_daily_report(
+            user_sub=user.get("sub") or "u_unknown",
+            display_name=(user.get("name")
+                          or user.get("email") or "Athlete"),
+            sessions=[s.model_dump() for s in body.sessions],
+        )
+    except EmailNotConfigured as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        print(f"report_daily_send error for user {user.get('sub')}: "
+              f"{type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail="email send failed")
+    return DailyReportResponse(**result)

@@ -12,8 +12,15 @@ export const EXERCISES = {
       primary: "knee",
       standingDeg: 170,
       bottomDeg: 100,
+      // A rep whose primary angle reaches at least shallowDeg (but
+      // never bottomDeg) still counts, tagged as shallow so the user
+      // sees feedback instead of silence.
+      shallowDeg: 130,
       hysteresisDeg: 8,
       confirmFrames: 2,
+      // Squat is bilateral: both knees must satisfy the descent test
+      // together, so a single-leg raise no longer counts as a rep.
+      bilateral: true,
     },
     rules: [
       {
@@ -70,8 +77,10 @@ export const EXERCISES = {
       primary: "hip",
       standingDeg: 165,
       bottomDeg: 110,
+      shallowDeg: 130,
       hysteresisDeg: 6,
       confirmFrames: 2,
+      bilateral: true,
     },
     rules: [
       {
