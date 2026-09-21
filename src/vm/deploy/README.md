@@ -45,7 +45,7 @@ Coach LLM
 | `GROQ_API_KEY` | if provider is `groq` | - | from https://console.groq.com |
 | `GROQ_MODEL` | no | `openai/gpt-oss-120b` | any Groq model id |
 | `ANTHROPIC_API_KEY` | if provider is `anthropic` | - | from https://console.anthropic.com |
-| `ANTHROPIC_MODEL` | no | `claude-haiku-4-5` | any Anthropic model id |
+| `ANTHROPIC_MODEL` | if provider is `anthropic` | - | any Anthropic model id you have access to |
 
 Auth
 | var | required | default | notes |

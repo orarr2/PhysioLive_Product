@@ -8,8 +8,9 @@ Reads `COACH_PROVIDER` from the environment and dispatches:
   `openai/gpt-oss-20b`; upgrade to `openai/gpt-oss-120b` via the
   `GROQ_MODEL` env var when instruction following matters more than
   latency.
-- `anthropic`: Claude Haiku via the Anthropic Python SDK, requires
-  `ANTHROPIC_API_KEY`.
+- `anthropic`: the Anthropic Messages API via its Python SDK,
+  requires `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` (the model id
+  is not defaulted so nothing about Anthropic's catalog is baked in).
 
 The system prompt is written to force the model to compose a NEW
 sentence rather than parrot the rule-based verdict text that appears
@@ -130,7 +131,9 @@ def _call_anthropic(user_prompt: str) -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is not set")
-    model = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5")
+    model = os.environ.get("ANTHROPIC_MODEL", "").strip()
+    if not model:
+        raise RuntimeError("ANTHROPIC_MODEL is not set")
     client = anthropic.Anthropic(api_key=api_key)
     msg = client.messages.create(
         model=model, max_tokens=140,

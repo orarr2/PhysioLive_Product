@@ -11,7 +11,10 @@ chromadb>=0.5
 onnxruntime>=1.17
 
 # LLM providers. Groq is called through httpx directly (no openai SDK
-# needed) so we only pin anthropic for the optional Claude backend.
+# needed) so we only pin the anthropic SDK for the optional
+# COACH_PROVIDER=anthropic path. Nothing about that provider is
+# defaulted at the code level - both ANTHROPIC_API_KEY and
+# ANTHROPIC_MODEL must be set explicitly by the operator.
 anthropic>=0.34
 
 # HTTP client for outbound calls

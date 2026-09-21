@@ -31,7 +31,7 @@ PhysioLive הוא מאמן פיזיותרפיה בזמן אמת שרץ בדפד�
 - סופרת חזרות של תרגילים באמצעות מכונת מצבים דטרמיניסטית שמזהה מעבר בין `STANDING` ל-`BOTTOM` וחוזרת.
 - מריצה חוקי פורם דטרמיניסטיים על כל חזרה (עומק, יישור ברך מעל הקרסול, שיפוע גו קדימה, ועוד).
 - שולחת את פסיקת הרפ ל-VM שמושך עדות רלוונטית מ-ChromaDB ומזמין את `openai/gpt-oss-120b` דרך Groq להרכיב משפט אימון קליני אחד.
-- מציגה את המשפט למטופל עם קישור למקור, מדברת אותו בקול (Web Speech API), ומעדכנת HUD חי (זווית ברך, אחוז עומק, שלב, מספר חזרה).
+- מציגה את המשפט למטופל עם קישור למקור, משמיעה אותו בקול (Web Speech API), ומעדכנת HUD חי (זווית ברך, אחוז עומק, שלב, מספר חזרה).
 - בסוף session שולחת דוח מייל יומי מפורט מ-Gmail SMTP.
 
 חמישה תרגילים נתמכים כרגע: `squat`, `lunge`, `glute_bridge`, `leg_raise`, `shoulder_abduction`.
@@ -233,7 +233,7 @@ const state = {
 הקובץ [webapp/assets/pose.js](../webapp/assets/pose.js) עוטף שני מודלים של MediaPipe Tasks Vision:
 
 - `PoseLandmarker` עם `pose_landmarker_full.task` (~7 MB) שמחזיר 33 נקודות ציון של הגוף.
-- `HandLandmarker` עם `hand_landmarker.task` (~5 MB) שמחזיר עד 21 נקודות פר יד, עד 2 ידיים.
+- `HandLandmarker` עם `hand_landmarker.task` (~5 MB) שמחזיר עד 21 נקודות לכל יד, עד 2 ידיים.
 
 הפונקציה `inferPose` מריצה את שני המודלים במקביל וממזגת את התוצאה לאובייקט אחד:
 
@@ -280,7 +280,7 @@ export function kneeAngle(lm, side) {
 }
 ```
 
-המאסטר-פונקציה `allAngles` מפעילה את כל החישובים ומחזירה dict אחד עם כל הזוויות והמדדים העזר (`torso_vertical`, `knee_over_toe_left`, וכו').
+הפונקציה המרכזית `allAngles` מפעילה את כל החישובים ומחזירה dict אחד עם כל הזוויות ומדדי העזר (`torso_vertical`, `knee_over_toe_left`, וכו').
 
 ### ספירת חזרות (rep_counter.js)
 
@@ -290,7 +290,7 @@ export function kneeAngle(lm, side) {
 - **shallowDeg**: אם המשתמש הגיע לסף רדוד יותר מ-bottomDeg אבל לא ליעד המלא, החזרה עדיין נספרת אבל מסומנת `shallow: true` וה-rule engine יפיק verdict "Rep counted, but shallow".
 - **בילטראלי**: תרגילים כמו סקוואט וגלוט-ברידג' מסומנים `bilateral: true` בקונפיג. פונקציית `pickPrimary` ב-`app.js` מחזירה `null` אם רק צד אחד גלוי, מה שמונע ספירה של הרמת רגל אחת כחזרת סקוואט.
 
-מבנה ה-getter של השלב לתצוגה:
+ה-getter שמחזיר את השלב לתצוגה:
 
 ```js
 get displayPhase() {
@@ -334,7 +334,7 @@ squat: {
 },
 ```
 
-הפונקציה `evaluate(sample, rules)` מעבירה על כל החוקים, אוספת את הפרות, ובוחרת את הפרה עם החומרה הגבוהה ביותר לתצוגה.
+הפונקציה `evaluate(sample, rules)` עוברת על כל החוקים, אוספת את ההפרות, ובוחרת את ההפרה עם החומרה הגבוהה ביותר לתצוגה.
 
 ### תזמון פתיחת המצלמה (openCameraStream)
 
@@ -381,7 +381,7 @@ async function openCameraStream(preferredDeviceId) {
 
 תוך כדי הרפ עצמו, לא רק בסופו, ה-HUD מציג:
 
-- **מד עומק אחוזי** בין 0% (עומד) ל-100%+ (הגיע ליעד bottom). מוצג כפס אופקי מתחת ל-HUD, צובע צהוב מ-60% וירוק ב-100%.
+- **מד עומק אחוזי** בין 0% (עומד) ל-100%+ (הגיע ליעד bottom). מוצג כפס אופקי מתחת ל-HUD, נצבע צהוב מ-60% וירוק ב-100%.
 
 ```js
 function updateDepthIndicator(primary, ex) {
@@ -401,7 +401,7 @@ function updateDepthIndicator(primary, ex) {
 }
 ```
 
-- **הבזק אדום על טבעת ה-HUD** ברגע ש-knee-over-toe או torso-lean חוצים סף באמצע החזרה. לא מחכה ל-rep close.
+- **הבזק אדום על טבעת ה-HUD** ברגע ש-knee-over-toe או torso-lean חוצים סף באמצע החזרה. הוא לא ממתין לסגירת החזרה.
 
 ### אותנטיקציה (auth.js)
 
@@ -419,7 +419,7 @@ export function authHeader() {
 }
 ```
 
-בהתנתקות ה-JWT נמחק וגם ה-profile ב-localStorage. הכפתור למעלה מימין מציג popover קטן (`Signed in as X` + Sign out) במקום להתנתק במיידי.
+בהתנתקות ה-JWT נמחק וגם ה-profile ב-localStorage. הכפתור למעלה מימין מציג popover קטן (`Signed in as X` + Sign out) במקום להתנתק מיידית.
 
 ### לקוח Coach (coach_client.js)
 
@@ -475,7 +475,7 @@ function _todaysSessions(sessions) {
 | `POST /coach/feedback` | JWT | retrieval + LLM composition |
 | `POST /report/daily/send` | JWT | דוח יומי במייל |
 
-הכל עטוף ב-`@limiter.limit(...)` מ-slowapi עם מפתח שמעדיף JWT sub על IP כדי שמשתמש שעובר בין רשתות לא ידפוק את המכסה שלו.
+הכל עטוף ב-`@limiter.limit(...)` מ-slowapi עם מפתח שמעדיף JWT sub על IP, כדי שמשתמש שעובר בין רשתות לא ימצה בטעות את המכסה של רשת אחת.
 
 CORS פתוח לכל ה-origins כי הדפדפן על GitHub Pages הוא cross-origin לעומת ה-tunnel, אבל ה-JWT הוא השער האמיתי:
 
@@ -496,10 +496,10 @@ app.add_middleware(
 
 - `issue_passphrase_token()` משווה את הסיסמה שנשלחה מול bcrypt hash או plain form, ומחזיר `{jwt, exp, profile}`.
 - `issue_google_token()` פונה ל-`oauth2.googleapis.com/tokeninfo`, מוודא את audience, verified email, ובודק אותו מול `PHYSIOLIVE_ALLOWED_EMAILS`.
-- `require_auth()` היא dependency של FastAPI שמפענחת Bearer JWT ומחזירה את ה-claims לרוט handlers.
-- `_get_or_create_secret()` דואג למפתח חתימת JWT: קודם קורא מ-env, אחר כך מ-`/var/lib/physiolive/jwt.secret`, אחר כך מייצר ב-`secrets.token_bytes(64)` ושומר עם 600.
+- `require_auth()` היא dependency של FastAPI שמפענחת Bearer JWT ומחזירה את ה-claims ל-route handlers.
+- `_get_or_create_secret()` דואג למפתח חתימת JWT: קודם קורא מ-env, אחר כך מ-`/var/lib/physiolive/jwt.secret`, אחר כך מייצר באמצעות `secrets.token_bytes(64)` ושומר עם הרשאות 600.
 
-הסאב של המשתמש מיוצר על ידי hash של email + source + secret כך שהמייל הפרטי לא זולג לשום log:
+מזהה המשתמש (`sub`) מיוצר על ידי hash של email + source + secret, כך שהמייל הפרטי לא זולג לאף log:
 
 ```python
 def _stable_sub(email: str, source: str) -> str:
@@ -514,9 +514,9 @@ def _stable_sub(email: str, source: str) -> str:
 
 ### coach_llm.py - Groq client
 
-הקובץ [src/vm/coach_llm.py](../src/vm/coach_llm.py) מריץ את קריאת ה-LLM. הוא תומך גם ב-`groq` (ברירת מחדל) וגם ב-`anthropic` דרך COACH_PROVIDER.
+הקובץ [src/vm/coach_llm.py](../src/vm/coach_llm.py) מבצע את קריאת ה-LLM. הוא תומך גם ב-`groq` (ברירת מחדל) וגם ב-`anthropic` דרך `COACH_PROVIDER`.
 
-הקריאה ל-Groq משתמשת ב-`openai/gpt-oss-120b` כברירת מחדל עם `reasoning_effort=low` ו-`max_tokens=800`:
+הקריאה ל-Groq משתמשת ב-`openai/gpt-oss-20b` כברירת מחדל של הקוד, אך ה-env של הפריסה מגדיר `GROQ_MODEL=openai/gpt-oss-120b` כדי לקבל איכות טובה יותר. הפרמטרים העיקריים: `reasoning_effort=low` ו-`max_tokens=800`:
 
 ```python
 payload = {
@@ -565,8 +565,8 @@ def already_sent_today(user_sub: str, today_ymd: str) -> bool:
 - `embedder.py` עוטף את ONNX all-MiniLM-L6-v2 שמגיע מובנה עם ChromaDB. אין צורך ב-sentence-transformers/PyTorch/CUDA - טעינת המודל תופסת ~90 MB RAM.
 - `store.py` מנהל את ה-persistent ChromaDB תחת `data/chroma/`. מספק `add_evidence`, `search`, `count_evidence`.
 - `corpus.py` מכיל את `SeedCorpus` שמאתחל את ה-store מ-`corpus/**/chunks.json` ו-`data/corpus_seed/*.json` (dedup by id), ואת `PubMedFetcher` שקורא ל-NCBI E-utilities.
-- `query.py` בונה את שאילתת ה-retrieval מתוך פסיקת החוקים ומטבע ה-tags ליעד גיוני.
-- `pubmed_queries.py` הוא רשימת 24 שאילתות ברירת מחדל לתוכנית `--pubmed 25` שמגדילה את הקורפוס ל-500-700 chunks.
+- `query.py` בונה את שאילתת ה-retrieval מתוך פסיקת החוקים והמדדים, וממטב את ה-tags כדי להחזיר עדות רלוונטית.
+- `pubmed_queries.py` היא רשימת 24 שאילתות ברירת המחדל של הפקודה `--pubmed 25`, שמגדילה את הקורפוס ל-500-700 chunks.
 
 ---
 
@@ -574,7 +574,7 @@ def already_sent_today(user_sub: str, today_ymd: str) -> bool:
 
 ### שכבת ה-seed
 
-ב-`corpus/` שוכן 15 chunks שנכתבו ידנית, עם schema קבוע:
+ב-`corpus/` שוכנים 15 chunks שנכתבו ידנית, עם schema קבוע:
 
 ```json
 {

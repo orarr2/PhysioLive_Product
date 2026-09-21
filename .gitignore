@@ -22,14 +22,13 @@ dist/
 .ipynb_checkpoints/
 */.ipynb_checkpoints/*
 
-# IDE
+# IDE / local tool caches
 .vscode/
 .idea/
 *.swp
 *.swo
 .DS_Store
 Thumbs.db
-.claude/
 
 # Project data (large or private). We keep the READMEs, .gitkeep
 # placeholders, the seed corpus, and reference signatures in git;
