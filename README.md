@@ -7,6 +7,9 @@ direction-agnostic state machine, checks form with deterministic rules,
 and turns each verdict into a citation-backed sentence using a small
 retrieval-augmented LLM hosted on a free-tier VM.
 
+> Hebrew walkthrough: see [docs/GUIDE_HE.md](docs/GUIDE_HE.md) for a
+> section-by-section, right-to-left guide to the whole project.
+
 Nothing about the user's video ever leaves the device. Only short,
 already-derived summaries (rep verdict, joint-angle minima) reach the
 coach service.
