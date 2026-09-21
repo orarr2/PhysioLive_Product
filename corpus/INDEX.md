@@ -1,8 +1,24 @@
 # Corpus INDEX
 
-Full listing of every chunk currently shipped with the repo. Regenerate
-this table by hand after adding a new entry, or (once wired) via
-`python -m app.tools.corpus_index --write`.
+Full listing of every **seed** chunk shipped with the repo. The 500-700
+PubMed abstracts added on top of the seed by
+`python -m app.tools.build_index --pubmed 25` are NOT listed here -
+they live in `data/chroma/` per install, keyed by PMID, with source
+URLs pointing at pubmed.ncbi.nlm.nih.gov. Verify their count on a
+running VM with:
+
+```
+python -c "from app.rag.store import Store; print(Store().count_evidence())"
+```
+
+or on the deployed service:
+
+```
+curl -s https://<tunnel>.trycloudflare.com/health | jq .chunks_count
+```
+
+Regenerate the seed table below by hand after adding a new entry, or
+(once wired) via `python -m app.tools.corpus_index --write`.
 
 ## Chunks
 

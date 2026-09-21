@@ -99,20 +99,37 @@ as one that increases (shoulder abduction).
 
 ## Scientific corpus
 
-`corpus/` is the physiotherapy evidence the coach cites from, organised
-one subfolder per topic (squat, knee, hip, shoulder, general). Every
-chunk carries its own source URL, license and evidence level so the
-web app can surface them next to each coach message. See:
+`corpus/` is the physiotherapy evidence the coach cites from. It ships
+in two layers:
 
-- `corpus/README.md` - overview, methodology, evidence-level legend.
-- `corpus/INDEX.md`  - table of every chunk (title, source, license).
+- **Seed layer** (~15 hand-authored chunks). Committed to git under
+  `corpus/{squat,knee,hip,shoulder,general}/chunks.json`. Optimised
+  for the specific rules the app enforces.
+- **PubMed layer** (500-700 chunks after ingest). Grown on demand
+  from ~24 physiotherapy queries against NCBI E-utilities. Lives only
+  in the ChromaDB files on each install; kept out of git so we do not
+  redistribute third-party abstract text.
+
+Every chunk carries its own source URL, license and evidence level so
+the web app can surface them next to each coach message.
+
+- `corpus/README.md` - full overview and methodology.
+- `corpus/INDEX.md`  - seed-layer table + how to size the PubMed layer.
 - `corpus/CONTRIBUTING.md` - how to add or update evidence.
+- `src/app/rag/pubmed_queries.py` - the PubMed query set.
 
-Build the local vector index once from the seed corpus:
+Build the local vector index:
 
 ```
-python -m app.tools.build_index                # seed only
-python -m app.tools.build_index --pubmed 25    # + 25 PubMed hits per query
+python -m app.tools.build_index                # seed only (~15 chunks)
+python -m app.tools.build_index --pubmed 25    # +25 abstracts per query
+                                               # (~500-700 chunks total)
+```
+
+Verify the total count:
+
+```
+python -c "from app.rag.store import Store; print(Store().count_evidence())"
 ```
 
 ## Web app

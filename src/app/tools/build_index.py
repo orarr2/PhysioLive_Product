@@ -23,19 +23,8 @@ if str(_ROOT / "src") not in sys.path:
 
 from app.rag.corpus import PubMedFetcher, SeedCorpus, chunk_text  # noqa: E402
 from app.rag.embedder import Embedder                              # noqa: E402
+from app.rag.pubmed_queries import DEFAULT_PUBMED_QUERIES          # noqa: E402
 from app.rag.store import Store                                    # noqa: E402
-
-
-DEFAULT_PUBMED_QUERIES = (
-    "physical therapy knee rehabilitation squat",
-    "patellofemoral pain rehabilitation exercise",
-    "anterior cruciate ligament rehabilitation range of motion",
-    "gluteus medius strengthening lower extremity",
-    "low back pain core stability exercise",
-    "shoulder impingement rehabilitation rotator cuff",
-    "hip abduction strengthening dynamic knee valgus",
-    "post-operative knee replacement physiotherapy",
-)
 
 
 def _batch(iterable, size: int):
