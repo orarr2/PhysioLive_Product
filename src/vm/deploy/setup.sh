@@ -108,6 +108,15 @@ EMAIL_SMTP_PORT=587
 EMAIL_ADDRESS=projgithub@gmail.com
 EMAIL_APP_PASSWORD=CHANGE_ME_NO_SPACES
 REPORT_RECIPIENT=projgithub@gmail.com
+
+# --- Local Llama fallback (see src/vm/deploy/local-llm.md) --------
+# Optional. When present the coach falls through to this model whenever
+# Groq errors, times out or rate-limits, so a Groq outage no longer
+# silences the coach. Leave unset to disable the fallback.
+PHYSIOLIVE_LOCAL_LLM_MODEL=/opt/physiolive/models/llama-3.2-1b-instruct-q4_k_m.gguf
+PHYSIOLIVE_LOCAL_LLM_CTX=1024
+PHYSIOLIVE_LOCAL_LLM_THREADS=2
+PHYSIOLIVE_LOCAL_LLM_MAX_TOKENS=140
 EOF
     chmod 600 "${ENV_FILE}"
     chown root:root "${ENV_FILE}"

@@ -7,21 +7,29 @@ Reads `COACH_PROVIDER` from the environment and dispatches:
   `httpx`. Requires `GROQ_API_KEY`. Default model is
   `openai/gpt-oss-20b`; upgrade to `openai/gpt-oss-120b` via the
   `GROQ_MODEL` env var when instruction following matters more than
-  latency.
+  latency. On any Groq failure (network, 429, 5xx, timeout) the
+  caller automatically falls through to the local Llama backend
+  described below - so a Groq outage never makes the coach silent.
 - `anthropic`: the Anthropic Messages API via its Python SDK,
   requires `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` (the model id
   is not defaulted so nothing about Anthropic's catalog is baked in).
+- `local`: llama.cpp inference against a small quantised GGUF model
+  on the VM. This is the primary use of the local backend when it
+  runs as an explicit provider; it is also invoked automatically as
+  a Groq fallback. Requires `llama-cpp-python` in the venv and a
+  gguf file at `PHYSIOLIVE_LOCAL_LLM_MODEL`
+  (default `/opt/physiolive/models/llama-3.2-1b-instruct-q4_k_m.gguf`).
 
 The system prompt is written to force the model to compose a NEW
 sentence rather than parrot the rule-based verdict text that appears
-in the user message. Smaller models (like gpt-oss-20b) can otherwise
-just echo the first "message"-like string they find; the explicit "do
-not repeat" instruction is what keeps them honest.
+in the user message. Smaller models (like gpt-oss-20b or Llama 3.2 1B)
+can otherwise just echo the first "message"-like string they find;
+the explicit "do not repeat" instruction is what keeps them honest.
 """
 from __future__ import annotations
 
 import os
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 import httpx
 
@@ -58,9 +66,27 @@ def call_llm(exercise: str, verdict_level: str, verdict_text: str,
     user_prompt = _build_user_prompt(exercise, verdict_level, verdict_text,
                                      metrics, chunks)
     if provider == "groq":
-        return _call_groq(user_prompt)
+        try:
+            return _call_groq(user_prompt)
+        except Exception as e:
+            # Never let a Groq outage silence the coach. Log the
+            # failure and try the on-VM Llama fallback; only surface
+            # the exception when the fallback itself has nothing
+            # useful to say.
+            print(f"coach: Groq failed ({type(e).__name__}: {e}), "
+                  f"falling through to local Llama fallback")
+            try:
+                out = _call_local_llama(user_prompt)
+                if out:
+                    return out
+            except Exception as e2:
+                print(f"coach: local Llama fallback also failed "
+                      f"({type(e2).__name__}: {e2})")
+            raise
     if provider == "anthropic":
         return _call_anthropic(user_prompt)
+    if provider == "local":
+        return _call_local_llama(user_prompt)
     raise ValueError(f"unknown COACH_PROVIDER: {provider!r}")
 
 
@@ -142,6 +168,83 @@ def _call_anthropic(user_prompt: str) -> str:
     )
     parts = getattr(msg, "content", None) or []
     return "".join(getattr(p, "text", "") for p in parts).strip()
+
+
+# ------------------------------------------------------------------ local
+
+_LOCAL_LLM: Optional[object] = None
+_LOCAL_LLM_LOAD_FAILED = False
+
+
+def _get_local_llm():
+    """Lazy-load the local Llama model. Kept in memory across calls
+    once loaded so the second and later requests do not pay the
+    tokenizer + weights load cost. When the load fails once we do not
+    retry; the operator is expected to fix the model file and restart
+    the service."""
+    global _LOCAL_LLM, _LOCAL_LLM_LOAD_FAILED
+    if _LOCAL_LLM is not None:
+        return _LOCAL_LLM
+    if _LOCAL_LLM_LOAD_FAILED:
+        raise RuntimeError("local LLM previously failed to load; "
+                           "restart the service after fixing the "
+                           "model path")
+    model_path = os.environ.get(
+        "PHYSIOLIVE_LOCAL_LLM_MODEL",
+        "/opt/physiolive/models/llama-3.2-1b-instruct-q4_k_m.gguf")
+    if not os.path.exists(model_path):
+        _LOCAL_LLM_LOAD_FAILED = True
+        raise RuntimeError(
+            f"local Llama model not found at {model_path}. "
+            f"Follow src/vm/deploy/local-llm.md to download it.")
+    try:
+        from llama_cpp import Llama
+    except Exception as e:
+        _LOCAL_LLM_LOAD_FAILED = True
+        raise RuntimeError(
+            f"llama-cpp-python not installed on the VM: {e}. "
+            f"Follow src/vm/deploy/local-llm.md.")
+    try:
+        n_ctx = int(os.environ.get("PHYSIOLIVE_LOCAL_LLM_CTX", "1024"))
+        n_threads = int(os.environ.get("PHYSIOLIVE_LOCAL_LLM_THREADS", "2"))
+        _LOCAL_LLM = Llama(
+            model_path=model_path,
+            n_ctx=n_ctx,
+            n_threads=n_threads,
+            n_batch=64,
+            verbose=False,
+        )
+        return _LOCAL_LLM
+    except Exception as e:
+        _LOCAL_LLM_LOAD_FAILED = True
+        raise RuntimeError(
+            f"failed to load local Llama at {model_path}: "
+            f"{type(e).__name__}: {e}")
+
+
+def _call_local_llama(user_prompt: str) -> str:
+    """Invoke the on-VM Llama 3.2 1B (or whichever quant is on disk)."""
+    llm = _get_local_llm()
+    max_tokens = int(os.environ.get("PHYSIOLIVE_LOCAL_LLM_MAX_TOKENS", "140"))
+    # Llama 3.2 Instruct uses the special chat template; the wrapper's
+    # create_chat_completion applies it correctly, keeping the local
+    # output style close to what Groq returns.
+    resp = llm.create_chat_completion(
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        max_tokens=max_tokens,
+        temperature=0.6,
+        top_p=0.9,
+        stop=["\n\n"],
+    )
+    choice = (resp.get("choices") or [{}])[0]
+    msg = choice.get("message") or {}
+    content = (msg.get("content") or "").strip()
+    if content:
+        return content
+    return ""
 
 
 def _build_user_prompt(exercise: str, verdict_level: str, verdict_text: str,

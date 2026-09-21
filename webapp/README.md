@@ -92,7 +92,7 @@ webapp/
   README.md                  this file
   tunnel-url.json            current tunnel origin (auto-updated)
   assets/
-    app.js                   wiring (views, camera, sign-in, TTS queue)
+    app.js                   wiring (views, camera, sign-in)
     pose.js                  MediaPipe Tasks Vision (PoseLandmarker)
     angles.js                joint-angle math
     rep_counter.js           state machine + two-tick confirmation

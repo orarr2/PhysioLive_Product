@@ -49,7 +49,7 @@ Browser  ---- MediaPipe Pose (33 landmarks) ----+  local, no upload
        coaching sentence + citation URL
                     |
                     v
-       Web app renders + speaks feedback
+       Web app renders the feedback
 ```
 
 Nothing on the VM stores raw video. The only inputs that reach it are:
@@ -67,7 +67,7 @@ Nothing on the VM stores raw video. The only inputs that reach it are:
    the live view to switch between front, back, and any external
    webcam. Your choice is remembered locally.
 5. Perform reps. The HUD ring fills as reps complete, the coach banner
-   speaks each cue, and the source link lets you inspect the evidence.
+   shows each cue, and the source link lets you inspect the evidence.
 
 ## Quick start (desktop notebook)
 

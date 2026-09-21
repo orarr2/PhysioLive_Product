@@ -31,7 +31,7 @@ PhysioLive הוא מאמן פיזיותרפיה בזמן אמת שרץ בדפד�
 - סופרת חזרות של תרגילים באמצעות מכונת מצבים דטרמיניסטית שמזהה מעבר בין `STANDING` ל-`BOTTOM` וחוזרת.
 - מריצה חוקי פורם דטרמיניסטיים על כל חזרה (עומק, יישור ברך מעל הקרסול, שיפוע גו קדימה, ועוד).
 - שולחת את פסיקת הרפ ל-VM שמושך עדות רלוונטית מ-ChromaDB ומזמין את `openai/gpt-oss-120b` דרך Groq להרכיב משפט אימון קליני אחד.
-- מציגה את המשפט למטופל עם קישור למקור, משמיעה אותו בקול (Web Speech API), ומעדכנת HUD חי (זווית ברך, אחוז עומק, שלב, מספר חזרה).
+- מציגה את המשפט למטופל עם קישור למקור, ומעדכנת HUD חי (זווית ברך, אחוז עומק, שלב, מספר חזרה).
 - בסוף session שולחת דוח מייל יומי מפורט מ-Gmail SMTP.
 
 חמישה תרגילים נתמכים כרגע: `squat`, `lunge`, `glute_bridge`, `leg_raise`, `shoulder_abduction`.
@@ -103,7 +103,6 @@ PhysioLive_Product/
       exercises/             קונפיגורציית תרגילים JSON
       rep_counter.py         מכונת מצבים לספירת חזרות
       form_rules.py          מנוע חוקי פורם דטרמיניסטי
-      voice.py               TTS worker + debounce
       dashboard_server.py    שרת HTTP + MJPEG + JSON API
       session_log.py         SQLite של הסבשן
       rag/
@@ -132,7 +131,7 @@ PhysioLive_Product/
     apple-touch-icon.svg
     tunnel-url.json          URL עדכני של Cloudflare tunnel
     assets/
-      app.js                 חיווט מלא: views, camera, TTS
+      app.js                 חיווט מלא: views, camera, sign-in, HUD
       pose.js                MediaPipe Tasks Vision
       angles.js              חישוב זוויות (מירר של angles.py)
       rep_counter.js         מכונת מצבים (מירר של rep_counter.py)
@@ -512,9 +511,19 @@ def _stable_sub(email: str, source: str) -> str:
     return "u_" + h.hexdigest()[:24]
 ```
 
-### coach_llm.py - Groq client
+### coach_llm.py - Groq client + Llama fallback לוקאלי
 
-הקובץ [src/vm/coach_llm.py](../src/vm/coach_llm.py) מבצע את קריאת ה-LLM. הוא תומך גם ב-`groq` (ברירת מחדל) וגם ב-`anthropic` דרך `COACH_PROVIDER`.
+הקובץ [src/vm/coach_llm.py](../src/vm/coach_llm.py) מבצע את קריאת ה-LLM. הוא תומך בשלושה ספקים דרך `COACH_PROVIDER`:
+
+- **groq** (ברירת מחדל) - `openai/gpt-oss-120b` ב-Groq free tier.
+- **anthropic** - קריאה ל-Anthropic Messages API (דורש `ANTHROPIC_API_KEY` ו-`ANTHROPIC_MODEL`).
+- **local** - הרצת inference ישירות על ה-VM עם Llama 3.2 1B Instruct דרך `llama-cpp-python`.
+
+**Fallback אוטומטי**: כאשר `COACH_PROVIDER=groq` וקריאת Groq נכשלת (rate limit, network, 5xx, timeout), הקוד נופל אוטומטית ל-Llama לוקאלי. כך גם השבתה של Groq לא משתיקה את ה-Coach. הקוד מתעד את המעבר ב-log:
+
+```
+coach: Groq failed (HTTPStatusError: 429 Too Many Requests), falling through to local Llama fallback
+```
 
 הקריאה ל-Groq משתמשת ב-`openai/gpt-oss-20b` כברירת מחדל של הקוד, אך ה-env של הפריסה מגדיר `GROQ_MODEL=openai/gpt-oss-120b` כדי לקבל איכות טובה יותר. הפרמטרים העיקריים: `reasoning_effort=low` ו-`max_tokens=800`:
 
@@ -535,6 +544,8 @@ if model.startswith("openai/gpt-oss"):
 ה-SYSTEM_PROMPT מכריח את המודל להרכיב משפט חדש במקום להעתיק את פסיקת החוקים, ולצטט לכל היותר chunk אחד מהעדות שהועברה אליו.
 
 fallback חכם ל-gpt-oss: אם השדה `content` מגיע ריק, הקוד מנסה לקרוא את `reasoning` ומחלץ את המשפט האחרון בעל אורך משמעותי כתחליף. זה פותר את הבאג ש-max_tokens קטן מדי גורם למודל לצרוך את כל התקציב על chain-of-thought בלי להשאיר מקום ל-content.
+
+ה-Llama הלוקאלי טוען lazy - רק כשמפעילים אותו בפעם הראשונה (בזמן Groq failure או כשהוא ה-primary provider). המודל נשאר בזיכרון בין קריאות כך שקריאות עוקבות משלמות רק את זמן ה-inference (~8-15 שנ' על 2 vCPU). ה-config שלו: `PHYSIOLIVE_LOCAL_LLM_MODEL`, `PHYSIOLIVE_LOCAL_LLM_CTX` (default 1024), `PHYSIOLIVE_LOCAL_LLM_THREADS` (default 2), ו-`PHYSIOLIVE_LOCAL_LLM_MAX_TOKENS` (default 140). מדריך התקנה מלא ב-[src/vm/deploy/local-llm.md](../src/vm/deploy/local-llm.md).
 
 ### email_report.py - דוח מייל
 

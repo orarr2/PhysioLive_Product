@@ -598,7 +598,6 @@ async function loop() {
       updateRing(state.repCounter.count, ex.repGoal, verdict.level);
       setCoach(verdict.text, verdict.level, null);
       pushFeedback(verdict.text, verdict.level, null);
-      speak(verdict.text);
 
       const uid = currentUserId() || "u_anon";
       appendRep(uid, state.sessionId, {
@@ -643,7 +642,6 @@ async function maybeAskCoach(ex, verdict, metrics, uid) {
     if (resp && resp.text) {
       setCoach(resp.text, verdict.level, resp.sourceUrl);
       pushFeedback(resp.text, verdict.level, resp.sourceUrl);
-      speak(resp.text);
     }
   } catch (_) {
     setCoachPending(false);
@@ -1122,49 +1120,6 @@ function openSignInModal() {
   document.getElementById("signin-modal").hidden = false;
   const passInput = document.getElementById("signin-pass");
   if (passInput) setTimeout(() => passInput.focus(), 60);
-}
-
-// ============================================================ SPEECH (queued)
-const speech = window.speechSynthesis;
-let ttsVoice = null;
-const ttsQueue = [];
-let ttsSpeaking = false;
-
-function loadVoice() {
-  if (!speech) return null;
-  const voices = speech.getVoices();
-  ttsVoice = voices.find(v => v.lang && v.lang.startsWith("en")) || voices[0] || null;
-  return ttsVoice;
-}
-if (speech) speech.onvoiceschanged = () => { loadVoice(); };
-
-function speak(text) {
-  if (!speech || !text) return;
-  ttsQueue.push(text);
-  if (ttsQueue.length > 3) {
-    // Drop the oldest so we do not lag many reps behind. Keep the two
-    // newest plus the one currently playing.
-    ttsQueue.splice(0, ttsQueue.length - 3);
-  }
-  drainTts();
-}
-
-function drainTts() {
-  if (ttsSpeaking) return;
-  const next = ttsQueue.shift();
-  if (!next) return;
-  try {
-    if (!ttsVoice) loadVoice();
-    const u = new SpeechSynthesisUtterance(next);
-    if (ttsVoice) u.voice = ttsVoice;
-    u.rate = 1.05;
-    u.onend = () => { ttsSpeaking = false; drainTts(); };
-    u.onerror = () => { ttsSpeaking = false; drainTts(); };
-    ttsSpeaking = true;
-    speech.speak(u);
-  } catch (_) {
-    ttsSpeaking = false;
-  }
 }
 
 // ============================================================ POSE / METRICS HELPERS

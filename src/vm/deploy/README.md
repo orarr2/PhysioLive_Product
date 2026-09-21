@@ -19,6 +19,8 @@ device.
 - `tunnel-publisher.md` - documents the systemd path unit that catches
   fresh TryCloudflare URLs on every reboot and pushes them back into
   the GitHub Pages web app.
+- `local-llm.md` - install guide for the optional on-VM Llama 3.2 1B
+  fallback that keeps the coach alive when Groq errors or times out.
 - `README.md` - this file.
 
 ## Quick start
@@ -41,11 +43,15 @@ Then follow `cloudflared.md` to attach a public HTTPS hostname and
 Coach LLM
 | var | required | default | notes |
 |---|---|---|---|
-| `COACH_PROVIDER` | no | `groq` | `groq` or `anthropic` |
+| `COACH_PROVIDER` | no | `groq` | `groq`, `anthropic`, or `local` |
 | `GROQ_API_KEY` | if provider is `groq` | - | from https://console.groq.com |
 | `GROQ_MODEL` | no | `openai/gpt-oss-120b` | any Groq model id |
 | `ANTHROPIC_API_KEY` | if provider is `anthropic` | - | from https://console.anthropic.com |
 | `ANTHROPIC_MODEL` | if provider is `anthropic` | - | any Anthropic model id you have access to |
+| `PHYSIOLIVE_LOCAL_LLM_MODEL` | no | `/opt/physiolive/models/llama-3.2-1b-instruct-q4_k_m.gguf` | path to the on-VM gguf model used as fallback when Groq fails; see `local-llm.md` |
+| `PHYSIOLIVE_LOCAL_LLM_CTX` | no | `1024` | Llama context window (tokens) |
+| `PHYSIOLIVE_LOCAL_LLM_THREADS` | no | `2` | Llama CPU threads |
+| `PHYSIOLIVE_LOCAL_LLM_MAX_TOKENS` | no | `140` | Llama max output tokens |
 
 Auth
 | var | required | default | notes |
